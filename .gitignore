@@ -4,5 +4,11 @@ dist
 *.vsix
 .DS_Store
 
+# Test artifacts
+.vscode-test
+coverage
+out-test
+tsconfig.integration.tsbuildinfo
+
 # Logs
 npm-debug.log*
