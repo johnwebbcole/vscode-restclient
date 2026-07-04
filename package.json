@@ -430,12 +430,6 @@
           "scope": "resource",
           "description": "Remember cookies for subsequent requests"
         },
-        "rest-client.enableTelemetry": {
-          "type": "boolean",
-          "default": false,
-          "scope": "resource",
-          "description": "Send out anonymous usage data"
-        },
         "rest-client.excludeHostsForProxy": {
           "type": "array",
           "default": [],
@@ -774,7 +768,6 @@
   },
   "dependencies": {
     "adal-node": "^0.2.4",
-    "applicationinsights": "^3.15.1",
     "aws-amplify": "^6.18.0",
     "aws4": "^1.13.2",
     "code-highlight-linenums": "^0.2.1",

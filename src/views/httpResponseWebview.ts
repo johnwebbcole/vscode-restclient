@@ -5,7 +5,6 @@ import { SystemSettings } from '../models/configurationSettings';
 import { HttpRequest } from '../models/httpRequest';
 import { HttpResponse } from '../models/httpResponse';
 import { PreviewOption } from '../models/previewOption';
-import { trace } from '../utils/decorator';
 import { disposeAll } from '../utils/dispose';
 import { MimeUtility } from '../utils/mimeUtility';
 import { base64, formatHeaders, getHeader, isJSONString } from '../utils/misc';
@@ -130,24 +129,20 @@ export class HttpResponseWebview extends BaseWebview {
         disposeAll(this.panels);
     }
 
-    @trace('Fold Response')
     private foldResponseBody() {
         this.activePanel?.webview.postMessage({ 'command': 'foldAll' });
     }
 
-    @trace('Unfold Response')
     private unfoldResponseBody() {
         this.activePanel?.webview.postMessage({ 'command': 'unfoldAll' });
     }
 
-    @trace('HTML Preview')
     private previewResponseBody() {
         if (this.activeResponse && this.activePanel) {
             this.activePanel.webview.html = this.activeResponse.body;
         }
     }
 
-    @trace('Raw')
     private showRawResponse() {
         if (this.activeResponse && this.activePanel) {
             this.activePanel.webview.html = this.getHtmlForWebview(this.activePanel, this.activeResponse);
@@ -171,7 +166,6 @@ export class HttpResponseWebview extends BaseWebview {
             `which reads the last cached response for a named request directly.`);
     }
 
-    @trace('Copy Response Body')
     private async copyBody() {
         if (this.activeResponse) {
             await this.clipboard.writeText(this.activeResponse.body);
@@ -180,7 +174,6 @@ export class HttpResponseWebview extends BaseWebview {
         }
     }
 
-    @trace('Save Response')
     private async save() {
         if (this.activeResponse) {
             const fullResponse = this.getFullResponseString(this.activeResponse);
@@ -195,7 +188,6 @@ export class HttpResponseWebview extends BaseWebview {
         }
     }
 
-    @trace('Save Response Body')
     private async saveBody() {
         if (this.activeResponse) {
             const fileName = HttpResponseWebview.getResponseBodyOuptutFilename(this.activeResponse, this.settings);
