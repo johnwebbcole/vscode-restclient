@@ -6,6 +6,10 @@ async function main() {
         const extensionDevelopmentPath = path.resolve(__dirname, '../../');
         const extensionTestsPath = path.resolve(__dirname, './suite/index');
 
+        // VS Code's integrated terminal sets this so `node` scripts can run under Electron;
+        // it also makes the downloaded test VS Code launch as a bare Node process instead of the app.
+        delete process.env.ELECTRON_RUN_AS_NODE;
+
         await runTests({
             extensionDevelopmentPath,
             extensionTestsPath

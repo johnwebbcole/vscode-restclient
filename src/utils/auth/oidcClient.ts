@@ -471,8 +471,7 @@ export class OidcClient {
       throw new Error(`Failed to retrieve access token: ${response.status} ${JSON.stringify(error)}`);
     }
 
-    const { access_token, refresh_token } = await response.json();
-
+    const { access_token, refresh_token } = await response.json() as TokenInformation;
 
     return { access_token, refresh_token };
   }
@@ -517,7 +516,7 @@ export class OidcClient {
         },
         body: postData
       });
-      const json = await response.json();
+      const json = await response.json() as TokenInformation;
       const { access_token, refresh_token } = json;
       if (!access_token) {
         reportError(`Failed to retrieve access token: ${response.status} ${JSON.stringify(json)}`);

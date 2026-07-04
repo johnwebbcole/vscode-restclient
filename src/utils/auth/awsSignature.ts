@@ -1,7 +1,8 @@
 import aws4 = require('aws4');
-import got = require('got');
 
-export function awsSignature(authorization: string): got.BeforeRequestHook {
+type BeforeRequestHook = (options: any) => Promise<any>;
+
+export function awsSignature(authorization: string): BeforeRequestHook {
     const [ , accessKeyId, secretAccessKey ] = authorization.split(/\s+/);
     const credentials = {
         accessKeyId,
@@ -14,7 +15,7 @@ export function awsSignature(authorization: string): got.BeforeRequestHook {
     };
 
     return async options => {
-        const result = aws4.sign({...options as any, ...awsScope}, credentials);
-        return result as any as got.Response;
+        const result = aws4.sign({...options, ...awsScope}, credentials);
+        return result;
     };
 }

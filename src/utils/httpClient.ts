@@ -17,9 +17,6 @@ import { convertBufferToStream, convertStreamToBuffer } from './streamUtility';
 import { UserDataManager } from './userDataManager';
 import { getCurrentHttpFileName, getWorkspaceRootPath } from './workspaceUtility';
 
-import { CancelableRequest, Headers, Method, OptionsOfBufferResponseBody, Response } from 'got';
-import got = require('got');
-
 const encodeUrl = require('encodeurl');
 const CookieFileStore = require('tough-cookie-file-store').FileCookieStore;
 
@@ -46,8 +43,11 @@ export class HttpClient {
         let bodySize = 0;
         let headersSize = 0;
         const requestUrl = encodeUrl(httpRequest.url);
-        const request: CancelableRequest<Response<Buffer>> = got.default(requestUrl, options);
-        httpRequest.setUnderlyingRequest(request);
+        const { default: got } = await import('got');
+        const abortController = new AbortController();
+        options.signal = abortController.signal;
+        const request = got(requestUrl, options);
+        httpRequest.setUnderlyingRequest({ cancel: () => abortController.abort() });
         (request as any).on('response', res => {
             if (res.rawHeaders) {
                 headersSize += res.rawHeaders.map(h => h.length).reduce((a, b) => a + b, 0);
@@ -109,7 +109,7 @@ export class HttpClient {
         this.cookieStore = new CookieFileStore(UserDataManager.cookieFilePath) as Store;
     }
 
-    private async prepareOptions(httpRequest: HttpRequest, settings: IRestClientSettings): Promise<OptionsOfBufferResponseBody> {
+    private async prepareOptions(httpRequest: HttpRequest, settings: IRestClientSettings): Promise<any> {
         const originalRequestBody = httpRequest.body;
         let requestBody: string | Buffer | undefined;
         if (originalRequestBody) {
@@ -124,15 +124,15 @@ export class HttpClient {
         // Simply do a shadow copy here
         const clonedHeaders = Object.assign({}, httpRequest.headers);
 
-        const options: OptionsOfBufferResponseBody = {
-            headers: clonedHeaders as any as Headers,
-            method: httpRequest.method as any as Method,
+        const options: any = {
+            headers: clonedHeaders,
+            method: httpRequest.method,
             body: requestBody,
             responseType: 'buffer',
             decompress: true,
             followRedirect: settings.followRedirect,
             throwHttpErrors: false,
-            retry: 0,
+            retry: { limit: 0 },
             hooks: {
                 afterResponse: [],
                 beforeRequest: [],
@@ -143,7 +143,7 @@ export class HttpClient {
         };
 
         if (settings.timeoutInMilliseconds > 0) {
-            options.timeout = settings.timeoutInMilliseconds;
+            options.timeout = { request: settings.timeoutInMilliseconds };
         }
 
         if (settings.rememberCookiesForSubsequentRequests) {
@@ -188,16 +188,16 @@ export class HttpClient {
             const proxyEndpoint = url.parse(settings.proxy);
             if (/^https?:$/.test(proxyEndpoint.protocol || '')) {
                 const proxyOptions = {
-                    host: proxyEndpoint.hostname,
-                    port: Number(proxyEndpoint.port),
                     rejectUnauthorized: settings.proxyStrictSSL
                 };
 
-                const ctor = (httpRequest.url.startsWith('http:')
-                    ? await import('http-proxy-agent')
-                    : await import('https-proxy-agent')).default;
-
-                options.agent = new ctor(proxyOptions);
+                if (httpRequest.url.startsWith('http:')) {
+                    const { HttpProxyAgent } = await import('http-proxy-agent');
+                    options.agent = { http: new HttpProxyAgent(settings.proxy, proxyOptions) };
+                } else {
+                    const { HttpsProxyAgent } = await import('https-proxy-agent');
+                    options.agent = { https: new HttpsProxyAgent(settings.proxy, proxyOptions) };
+                }
             }
         }
 

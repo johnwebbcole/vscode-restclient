@@ -1,11 +1,10 @@
-import { CancelableRequest, Response } from 'got';
 import { Stream } from 'stream';
 import { getContentType } from '../utils/misc';
 import { RequestHeaders } from './base';
 
 export class HttpRequest {
     public isCancelled: boolean;
-    private _underlyingRequest: CancelableRequest<Response<Buffer>>;
+    private _underlyingRequest: { cancel(): void };
     public constructor(
         public method: string,
         public url: string,
@@ -21,7 +20,7 @@ export class HttpRequest {
         return getContentType(this.headers);
     }
 
-    public setUnderlyingRequest(request: CancelableRequest<Response<Buffer>>): void {
+    public setUnderlyingRequest(request: { cancel(): void }): void {
         this._underlyingRequest = request;
     }
 

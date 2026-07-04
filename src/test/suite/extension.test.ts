@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 
 suite('Extension Host', () => {
     test('extension is registered', () => {
-        const extension = vscode.extensions.getExtension('humao.rest-client');
+        const extension = vscode.extensions.getExtension('johncole.restclient-mcp');
         assert.ok(extension);
     });
 });
