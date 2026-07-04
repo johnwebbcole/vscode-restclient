@@ -1,3 +1,4 @@
+import { availableTargets, HarRequest, HTTPSnippet, TargetId } from 'httpsnippet';
 import { EOL } from 'os';
 import * as url from 'url';
 import { Clipboard, env, ExtensionContext, QuickInputButtons, window } from 'vscode';
@@ -14,7 +15,6 @@ import { getCurrentTextDocument } from '../utils/workspaceUtility';
 import { CodeSnippetWebview } from '../views/codeSnippetWebview';
 
 const encodeUrl = require('encodeurl');
-const HTTPSnippet = require('httpsnippet');
 
 type CodeSnippetClient = {
     key: string;
@@ -30,7 +30,7 @@ type CodeSnippetTarget = {
 };
 
 export class CodeSnippetController {
-    private readonly _availableTargets: CodeSnippetTarget[] = HTTPSnippet.availableTargets();
+    private readonly _availableTargets: CodeSnippetTarget[] = availableTargets();
     private readonly clipboard: Clipboard;
     private _webview: CodeSnippetWebview;
 
@@ -59,7 +59,7 @@ export class CodeSnippetController {
         const httpRequest = await RequestParserFactory.createRequestParser(text, settings).parseHttpRequest();
 
         const harHttpRequest = this.convertToHARHttpRequest(httpRequest);
-        const snippet = new HTTPSnippet(harHttpRequest);
+        const snippet = new HTTPSnippet(harHttpRequest as unknown as HarRequest);
 
         let target: Pick<CodeSnippetTarget, 'key' | 'title'> | undefined = undefined;
 
@@ -96,11 +96,11 @@ export class CodeSnippetController {
                 const { key: ck, title: ct } = selectedItem as any as CodeSnippetClient;
                 const { key: tk, title: tt } = target!;
                 Telemetry.sendEvent('Generate Code Snippet', { 'target': target!.key, 'client': ck });
-                const result = snippet.convert(tk, ck);
+                const result = snippet.convert(tk as TargetId, ck);
 
                 quickPick.hide();
                 try {
-                    this._webview.render(result, `${tt}-${ct}`, tk);
+                    this._webview.render(result as string, `${tt}-${ct}`, tk);
                 } catch (reason) {
                     Logger.error('Unable to preview generated code snippet:', reason);
                     window.showErrorMessage(reason);
@@ -137,12 +137,12 @@ export class CodeSnippetController {
             // Add protocol for url that doesn't specify protocol to pass the HTTPSnippet validation #328
             harHttpRequest.url = `http://${originalUrl}`;
         }
-        const snippet = new HTTPSnippet(harHttpRequest);
+        const snippet = new HTTPSnippet(harHttpRequest as unknown as HarRequest);
         if (addPrefix) {
             snippet.requests[0].fullUrl = originalUrl;
         }
         const result = snippet.convert('shell', 'curl', process.platform === 'win32' ? { indent: false } : {});
-        await this.clipboard.writeText(result);
+        await this.clipboard.writeText(result as string);
     }
 
     private convertToHARHttpRequest(request: HttpRequest): HARHttpRequest {

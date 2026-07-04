@@ -1,4 +1,4 @@
-import * as fs from 'fs-extra';
+import * as fs from 'fs';
 import * as path from 'path';
 import { ConfigurationTarget, env, Uri, window, workspace } from 'vscode';
 import * as Constants from '../common/constants';
@@ -81,7 +81,7 @@ export class PostmanController {
             return;
         }
 
-        await fs.writeFile(saveUri.fsPath, JSON.stringify(collection, null, 2), 'utf8');
+        await fs.promises.writeFile(saveUri.fsPath, JSON.stringify(collection, null, 2), 'utf8');
         window.showInformationMessage(`Postman collection exported to ${path.basename(saveUri.fsPath)}.`);
 
         await this.maybeExportEnvironment(document.fileName);
@@ -100,7 +100,7 @@ export class PostmanController {
 
         let json: any;
         try {
-            const content = await fs.readFile(sourceUri.fsPath, 'utf8');
+            const content = await fs.promises.readFile(sourceUri.fsPath, 'utf8');
             json = JSON.parse(content);
         } catch (error) {
             window.showErrorMessage(`Unable to read or parse "${path.basename(sourceUri.fsPath)}": ${error.message}`);
@@ -184,7 +184,7 @@ export class PostmanController {
             return;
         }
 
-        await fs.writeFile(saveUri.fsPath, JSON.stringify(postmanEnvironment, null, 2), 'utf8');
+        await fs.promises.writeFile(saveUri.fsPath, JSON.stringify(postmanEnvironment, null, 2), 'utf8');
         window.showInformationMessage(`Postman environment exported to ${path.basename(saveUri.fsPath)}.`);
     }
 

@@ -1,8 +1,7 @@
+import { filesize } from 'filesize';
 import { EOL } from 'os';
 import { StatusBarAlignment, StatusBarItem, window } from 'vscode';
 import { HttpResponse } from '../models/httpResponse';
-
-const filesize = require('filesize');
 
 type NonReceivedRequestStatus = {
     state: RequestState.Closed | RequestState.Cancelled | RequestState.Error | RequestState.Pending

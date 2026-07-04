@@ -1,7 +1,8 @@
-import * as fs from 'fs-extra';
+import * as fs from 'fs';
 import * as iconv from 'iconv-lite';
 import * as path from 'path';
 import { CookieJar, Store } from 'tough-cookie';
+import CookieFileStore from 'tough-cookie-file-store';
 import * as url from 'url';
 import { Uri, window } from 'vscode';
 import { RequestHeaders, ResponseHeaders } from '../models/base';
@@ -18,7 +19,6 @@ import { UserDataManager } from './userDataManager';
 import { getCurrentHttpFileName, getWorkspaceRootPath } from './workspaceUtility';
 
 const encodeUrl = require('encodeurl');
-const CookieFileStore = require('tough-cookie-file-store').FileCookieStore;
 
 type Certificate = {
     cert?: Buffer;
@@ -105,7 +105,7 @@ export class HttpClient {
     }
 
     public async clearCookies() {
-        await fs.remove(UserDataManager.cookieFilePath);
+        await fs.promises.rm(UserDataManager.cookieFilePath, { force: true });
         this.cookieStore = new CookieFileStore(UserDataManager.cookieFilePath) as Store;
     }
 

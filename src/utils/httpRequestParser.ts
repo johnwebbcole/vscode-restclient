@@ -1,4 +1,4 @@
-import * as fs from 'fs-extra';
+import * as fs from 'fs';
 import { EOL } from 'os';
 import { Stream } from 'stream';
 import { IRestClientSettings } from '../models/configurationSettings';
@@ -201,7 +201,7 @@ export class HttpRequestParser implements RequestParser {
                         const fileAbsolutePath = await resolveRequestBodyPath(inputFilePath);
                         if (fileAbsolutePath) {
                             if (groupsValues.processVariables) {
-                                const buffer = await fs.readFile(fileAbsolutePath);
+                                const buffer = await fs.promises.readFile(fileAbsolutePath);
                                 const fileContent = buffer.toString((groupsValues.encoding || this.defaultFileEncoding) as BufferEncoding);
                                 const resolvedContent = await VariableProcessor.processRawRequest(fileContent);
                                 combinedStream.append(resolvedContent);

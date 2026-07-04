@@ -1,4 +1,4 @@
-import * as fs from 'fs-extra';
+import * as fs from 'fs';
 import * as os from 'os';
 import { Clipboard, commands, env, ExtensionContext, Uri, ViewColumn, WebviewPanel, window, workspace } from 'vscode';
 import { SystemSettings } from '../models/configurationSettings';
@@ -247,7 +247,7 @@ export class HttpResponseWebview extends BaseWebview {
         }
 
         const filePath = uri.fsPath;
-        await fs.writeFile(filePath, content, { flag: 'w' });
+        await fs.promises.writeFile(filePath, content, { flag: 'w' });
         const btn = await window.showInformationMessage(`Saved to ${filePath}`, { title: OPEN }, { title: COPYPATH });
         if (btn?.title === OPEN) {
             workspace.openTextDocument(filePath).then(window.showTextDocument);

@@ -1,12 +1,13 @@
+import * as crypto from 'crypto';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import * as fs from 'fs-extra';
+import * as fs from 'fs';
 import { EOL, tmpdir } from 'os';
 import * as path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { QuickPickItem, window, workspace } from 'vscode';
 import { HistoricalHttpRequest } from '../models/httpRequest';
 import { trace } from "../utils/decorator";
+import { ensureFile } from '../utils/fsUtility';
 import { formatHeaders } from '../utils/misc';
 import { UserDataManager } from '../utils/userDataManager';
 
@@ -66,13 +67,13 @@ export class HistoryController {
         if (request.body) {
             output += `${EOL}${request.body}`;
         }
-        await fs.writeFile(file, output);
+        await fs.promises.writeFile(file, output);
         return file;
     }
 
     private async createTempFile(): Promise<string> {
-        const file = path.join(tmpdir(), `vscode-restclient-${uuidv4()}.http`);
-        await fs.ensureFile(file);
+        const file = path.join(tmpdir(), `vscode-restclient-${crypto.randomUUID()}.http`);
+        await ensureFile(file);
         return file;
     }
 

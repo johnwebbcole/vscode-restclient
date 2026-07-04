@@ -1,10 +1,10 @@
 import * as adal from 'adal-node';
+import * as crypto from 'crypto';
 import dayjs, { Dayjs, ManipulateType } from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import * as dotenv from 'dotenv';
-import * as fs from 'fs-extra';
+import * as fs from 'fs';
 import * as path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { Clipboard, commands, env, QuickPickItem, QuickPickOptions, TextDocument, Uri, window } from 'vscode';
 import * as Constants from '../../common/constants';
 import { EnvironmentController } from '../../controllers/environmentController';
@@ -14,6 +14,7 @@ import { VariableType } from '../../models/variableType';
 import { AadTokenCache } from '../aadTokenCache';
 import { AadV2TokenProvider } from '../aadV2TokenProvider';
 import { CALLBACK_PORT, OidcClient } from '../auth/oidcClient';
+import { pathExists } from '../fsUtility';
 import { HttpClient } from '../httpClient';
 import { EnvironmentVariableProvider } from './environmentVariableProvider';
 import { HttpVariable, HttpVariableContext, HttpVariableProvider } from './httpVariableProvider';
@@ -150,7 +151,7 @@ export class SystemVariableProvider implements HttpVariableProvider {
     }
 
     private registerGuidVariable() {
-        this.resolveFuncs.set(Constants.GuidVariableName, async () => ({ value: uuidv4() }));
+        this.resolveFuncs.set(Constants.GuidVariableName, async () => ({ value: crypto.randomUUID() }));
     }
 
     private registerRandomIntVariable() {
@@ -196,8 +197,8 @@ export class SystemVariableProvider implements HttpVariableProvider {
             let pathsFound = [false, false];
 
             while ((pathsFound = await Promise.all([
-                fs.pathExists(path.join(folderPath, `.env.${environmentName}`)),
-                fs.pathExists(path.join(folderPath, '.env'))
+                pathExists(path.join(folderPath, `.env.${environmentName}`)),
+                pathExists(path.join(folderPath, '.env'))
             ])).every(result => result === false)) {
                 folderPath = path.join(folderPath, '..');
                 if (folderPath === path.parse(process.cwd()).root) {
@@ -207,7 +208,7 @@ export class SystemVariableProvider implements HttpVariableProvider {
             const absolutePath = path.join(folderPath, pathsFound[0] ? `.env.${environmentName}` : '.env');
             const groups = this.dotenvRegex.exec(name);
             if (groups !== null && groups.length === 3) {
-                const parsed = dotenv.parse(await fs.readFile(absolutePath));
+                const parsed = dotenv.parse(await fs.promises.readFile(absolutePath));
                 const [, refToggle, key] = groups;
                 let dotEnvVarName = key;
                 if (refToggle !== undefined) {

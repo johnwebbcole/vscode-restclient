@@ -1,7 +1,8 @@
-import * as fs from 'fs-extra';
+import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { HistoricalHttpRequest } from '../models/httpRequest';
+import { ensureFile } from './fsUtility';
 import { JsonFileUtility } from './jsonFileUtility';
 
 const restClientDir = 'rest-client';
@@ -62,11 +63,11 @@ export class UserDataManager {
 
     public static async initialize(): Promise<void> {
         await Promise.all([
-            fs.ensureFile(this.historyFilePath),
-            fs.ensureFile(this.cookieFilePath),
-            fs.ensureFile(this.environmentFilePath),
-            fs.ensureDir(this.responseSaveFolderPath),
-            fs.ensureDir(this.responseBodySaveFolderPath)
+            ensureFile(this.historyFilePath),
+            ensureFile(this.cookieFilePath),
+            ensureFile(this.environmentFilePath),
+            fs.promises.mkdir(this.responseSaveFolderPath, { recursive: true }),
+            fs.promises.mkdir(this.responseBodySaveFolderPath, { recursive: true })
         ]);
     }
 

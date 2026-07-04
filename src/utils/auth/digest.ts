@@ -1,5 +1,5 @@
+import * as crypto from 'crypto';
 import * as url from 'url';
-import { v4 as uuidv4 } from 'uuid';
 import { md5 } from '../misc';
 
 type AfterResponseHook = (response: any, retryWithMergedOptions: (options: any) => any) => any;
@@ -41,7 +41,7 @@ export function digest(user: string, pass: string): AfterResponseHook {
 
             const qop = /(^|,)\s*auth\s*($|,)/.test(challenge.qop) && 'auth';
             const nc = qop && '00000001';
-            const cnonce = qop && uuidv4().replace(/-/g, '');
+            const cnonce = qop && crypto.randomUUID().replace(/-/g, '');
             const ha1 = ha1Compute(challenge.algorithm, user, challenge.realm, pass, challenge.nonce, cnonce);
             const ha2 = md5(method + ':' + path);
             const digestResponse = qop
