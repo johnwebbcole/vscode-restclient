@@ -1,4 +1,4 @@
-## Unreleased
+## 1.0.0 (2026/07/04)
 * __Feature__: Added a standalone `mcp-server/` MCP server so AI agents can send requests directly from `.http`/`.rest` files (`list_requests`, `run_request`, `run_file`).
 * __Feature__: The MCP server now keeps a process-lifetime in-memory cookie jar, so `run_request`/`run_file` can replay `Set-Cookie` cookies across requests (e.g. a login followed by authenticated calls) similarly to the VS Code extension's cookie jar. Opt out per call with `useCookieJar: false`. See [mcp-server/README.md](mcp-server/README.md#cookie-jar).
 * __Behavior Change__: Agents (Claude Code, Copilot, etc.) working in this repo now default to the `rest-client` MCP tools for HTTP/API calls instead of shelling out to `curl`; curl remains available but is opt-in only (explicit "use curl"/"run curl" asks, or a literal curl command). If the MCP service is unavailable, agents report it with fallback guidance instead of silently falling back to curl. See [mcp-server/README.md](mcp-server/README.md#transport-policy-mcp-vs-curl) and [AGENTS.md](AGENTS.md#http-request-tool-policy-agents).

@@ -14,8 +14,8 @@ import {
     PostmanUrlQueryParam,
     PostmanVariable
 } from '../models/postmanCollection';
-import { getContentType } from './misc';
 import { MimeUtility } from './mimeUtility';
+import { getContentType } from './misc';
 
 const rawLanguageToContentType: Record<string, string> = {
     json: 'application/json',

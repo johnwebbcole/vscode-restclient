@@ -2,7 +2,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ConfigurationTarget, env, Uri, window, workspace } from 'vscode';
 import * as Constants from '../common/constants';
-import { EnvironmentController } from './environmentController';
 import { IRestClientSettings, RequestSettings, RestClientSettings, SystemSettings } from '../models/configurationSettings';
 import { HttpRequest } from '../models/httpRequest';
 import {
@@ -23,6 +22,7 @@ import {
 } from '../utils/postmanConverter';
 import { Selector } from '../utils/selector';
 import { getCurrentTextDocument } from '../utils/workspaceUtility';
+import { EnvironmentController } from './environmentController';
 
 export class PostmanController {
     public async exportRequestAsPostman() {
