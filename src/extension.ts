@@ -5,6 +5,7 @@ import { commands, ExtensionContext, languages, Range, TextDocument, Uri, window
 import { CodeSnippetController } from './controllers/codeSnippetController';
 import { EnvironmentController } from './controllers/environmentController';
 import { HistoryController } from './controllers/historyController';
+import { PostmanController } from './controllers/postmanController';
 import { RequestController, RequestTarget } from './controllers/requestController';
 import { SwaggerController } from './controllers/swaggerController';
 import { CustomVariableDiagnosticsProvider } from "./providers/customVariableDiagnosticsProvider";
@@ -34,6 +35,7 @@ export async function activate(context: ExtensionContext) {
     const codeSnippetController = new CodeSnippetController(context);
     const environmentController = await EnvironmentController.create();
     const swaggerController = new SwaggerController(context);
+    const postmanController = new PostmanController();
     context.subscriptions.push(requestController);
     context.subscriptions.push(historyController);
     context.subscriptions.push(codeSnippetController);
@@ -55,6 +57,9 @@ export async function activate(context: ExtensionContext) {
         });
     }));
     context.subscriptions.push(commands.registerCommand('rest-client.import-swagger', async () => swaggerController.import()));
+    context.subscriptions.push(commands.registerCommand('rest-client.export-request-as-postman', () => postmanController.exportRequestAsPostman()));
+    context.subscriptions.push(commands.registerCommand('rest-client.export-file-as-postman', (uri?: Uri) => postmanController.exportFileAsPostman(uri)));
+    context.subscriptions.push(commands.registerCommand('rest-client.import-postman-collection', (uri?: Uri) => postmanController.importPostmanCollection(uri)));
 
 
     const documentSelector = [

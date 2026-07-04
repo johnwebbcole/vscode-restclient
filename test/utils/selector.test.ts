@@ -406,3 +406,66 @@ describe('Selector.getRequestRangeByName', () => {
         expect(range).toBeNull();
     });
 });
+
+// ---------------------------------------------------------------------------
+// getAllRequestBlocks / getRequestBlockAt
+// ---------------------------------------------------------------------------
+describe('Selector.getAllRequestBlocks', () => {
+    it('extracts every request in a multi-request file with {{variables}} left literal', () => {
+        const text = [
+            '@baseUrl = https://example.com',
+            '',
+            '###',
+            '# @name first',
+            'GET {{baseUrl}}/first',
+            '',
+            '###',
+            '# @name second',
+            'POST {{baseUrl}}/second',
+            'Content-Type: application/json',
+            '',
+            '{"a":1}',
+        ].join(EOL);
+
+        const blocks = Selector.getAllRequestBlocks(documentOf(text));
+
+        expect(blocks).toHaveLength(2);
+        expect(blocks[0].metadatas.get(RequestMetadata.Name)).toBe('first');
+        expect(blocks[0].text).toBe('GET {{baseUrl}}/first');
+        expect(blocks[1].metadatas.get(RequestMetadata.Name)).toBe('second');
+        expect(blocks[1].text).toContain('POST {{baseUrl}}/second');
+        expect(blocks[1].text).toContain('{"a":1}');
+    });
+
+    it('returns a single block for a file with no delimiters', () => {
+        const text = ['# @name only', 'GET https://example.com'].join(EOL);
+        const blocks = Selector.getAllRequestBlocks(documentOf(text));
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].metadatas.get(RequestMetadata.Name)).toBe('only');
+    });
+
+    it('returns an empty array for an empty document', () => {
+        expect(Selector.getAllRequestBlocks(documentOf(''))).toEqual([]);
+    });
+});
+
+describe('Selector.getRequestBlockAt', () => {
+    it('extracts the block containing the given line, unresolved', () => {
+        const text = [
+            '# @name first',
+            'GET {{baseUrl}}/first',
+            '###',
+            '# @name second',
+            'GET {{baseUrl}}/second',
+        ].join(EOL);
+
+        const block = Selector.getRequestBlockAt(documentOf(text), 4);
+        expect(block?.metadatas.get(RequestMetadata.Name)).toBe('second');
+        expect(block?.text).toBe('GET {{baseUrl}}/second');
+    });
+
+    it('returns null when the line is not within any block', () => {
+        const block = Selector.getRequestBlockAt(documentOf(''), 0);
+        expect(block).toBeNull();
+    });
+});

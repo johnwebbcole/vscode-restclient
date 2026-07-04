@@ -251,18 +251,7 @@ export class Selector {
      */
     public static getRequestRangeByName(document: TextDocument, name: string): Range | null {
         const lines = document.getText().split(Constants.LineSplitterRegex);
-        const delimiterLineNumbers = this.getDelimiterRows(lines);
-        const blockBoundaries: [number, number][] = [];
-
-        if (delimiterLineNumbers.length === 0) {
-            blockBoundaries.push([0, lines.length - 1]);
-        } else {
-            blockBoundaries.push([0, delimiterLineNumbers[0] - 1]);
-            for (let index = 0; index < delimiterLineNumbers.length - 1; index++) {
-                blockBoundaries.push([delimiterLineNumbers[index] + 1, delimiterLineNumbers[index + 1] - 1]);
-            }
-            blockBoundaries.push([delimiterLineNumbers[delimiterLineNumbers.length - 1] + 1, lines.length - 1]);
-        }
+        const blockBoundaries = this.getBlockBoundaries(lines);
 
         for (const [start, end] of blockBoundaries) {
             if (start > end) {
@@ -277,6 +266,80 @@ export class Selector {
         }
 
         return null;
+    }
+
+    /**
+     * Extracts the request block containing the given zero-based line number, with
+     * metadata parsed and comment lines stripped, but WITHOUT resolving any
+     * {{variables}} -- unlike getRequest(), which resolves them for execution. This
+     * keeps {{variables}} literal, which callers converting to a portable format
+     * (e.g. a Postman collection) need.
+     */
+    public static getRequestBlockAt(document: TextDocument, line: number): SelectedRequest | null {
+        const lines = document.getText().split(Constants.LineSplitterRegex);
+        const blockBoundaries = this.getBlockBoundaries(lines);
+
+        const boundary = blockBoundaries.find(([start, end]) => start <= line && line <= end);
+        if (!boundary) {
+            return null;
+        }
+
+        return this.extractRequestBlock(lines.slice(boundary[0], boundary[1] + 1));
+    }
+
+    /**
+     * Extracts every request block in the document, in document order, with
+     * metadata parsed and comment lines stripped, and {{variables}} left literal
+     * (see getRequestBlockAt). Empty blocks (e.g. a trailing '###' with nothing
+     * after it) are skipped.
+     */
+    public static getAllRequestBlocks(document: TextDocument): SelectedRequest[] {
+        const lines = document.getText().split(Constants.LineSplitterRegex);
+        const blockBoundaries = this.getBlockBoundaries(lines);
+
+        const requests: SelectedRequest[] = [];
+        for (const [start, end] of blockBoundaries) {
+            if (start > end) {
+                continue;
+            }
+
+            const block = this.extractRequestBlock(lines.slice(start, end + 1));
+            if (block) {
+                requests.push(block);
+            }
+        }
+
+        return requests;
+    }
+
+    private static extractRequestBlock(blockLines: string[]): SelectedRequest | null {
+        const metadatas = this.parseReqMetadatas(blockLines);
+
+        const rawLines = blockLines.filter(l => !this.isCommentLine(l));
+        const requestRange = this.getRequestRanges(rawLines)[0];
+        if (!requestRange) {
+            return null;
+        }
+
+        const text = rawLines.slice(requestRange[0], requestRange[1] + 1).join(EOL);
+        return { text, metadatas };
+    }
+
+    private static getBlockBoundaries(lines: string[]): [number, number][] {
+        const delimiterLineNumbers = this.getDelimiterRows(lines);
+        const blockBoundaries: [number, number][] = [];
+
+        if (delimiterLineNumbers.length === 0) {
+            blockBoundaries.push([0, lines.length - 1]);
+        } else {
+            blockBoundaries.push([0, delimiterLineNumbers[0] - 1]);
+            for (let index = 0; index < delimiterLineNumbers.length - 1; index++) {
+                blockBoundaries.push([delimiterLineNumbers[index] + 1, delimiterLineNumbers[index + 1] - 1]);
+            }
+            blockBoundaries.push([delimiterLineNumbers[delimiterLineNumbers.length - 1] + 1, lines.length - 1]);
+        }
+
+        return blockBoundaries;
     }
 
     public static* getMarkdownRestSnippets(document: TextDocument): Generator<Range> {

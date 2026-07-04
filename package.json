@@ -1,12 +1,12 @@
 {
-  "name": "rest-client",
-  "displayName": "REST Client",
+  "name": "restclient-mcp",
+  "displayName": "RestClient MCP",
   "description": "REST Client for Visual Studio Code",
   "version": "0.26.0",
-  "publisher": "humao",
+  "publisher": "JohnCole",
   "author": {
-    "name": "Huachao Mao",
-    "email": "huachaomao@gmail.com"
+    "name": "John Cole",
+    "email": "johnwebbcole@gmail.com"
   },
   "icon": "images/rest_icon.png",
   "galleryBanner": {
@@ -15,13 +15,13 @@
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Huachao/vscode-restclient/issues",
-    "email": "huachaomao@gmail.com"
+    "url": "https://github.com/johnwebbcole/vscode-restclient/issues",
+    "email": "johnwebbcole@gmail.com"
   },
-  "homepage": "https://github.com/Huachao/vscode-restclient/blob/master/README.md",
+  "homepage": "https://github.com/johnwebbcole/vscode-restclient/blob/master/README.md",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Huachao/vscode-restclient.git"
+    "url": "https://github.com/johnwebbcole/vscode-restclient.git"
   },
   "engines": {
     "vscode": "^1.81.0"
@@ -188,6 +188,21 @@
         "command": "rest-client.import-swagger",
         "title": "Import from file",
         "category": "Rest Client"
+      },
+      {
+        "command": "rest-client.export-request-as-postman",
+        "title": "Export Request As Postman Collection",
+        "category": "Rest Client"
+      },
+      {
+        "command": "rest-client.export-file-as-postman",
+        "title": "Export All Requests As Postman Collection",
+        "category": "Rest Client"
+      },
+      {
+        "command": "rest-client.import-postman-collection",
+        "title": "Import Postman Collection",
+        "category": "Rest Client"
       }
     ],
     "menus": {
@@ -282,6 +297,28 @@
           "command": "rest-client.copy-request-as-curl",
           "when": "editorTextFocus && editorLangId == http",
           "group": "rest-client@3"
+        },
+        {
+          "command": "rest-client.export-request-as-postman",
+          "when": "editorTextFocus && editorLangId == http",
+          "group": "rest-client@4"
+        },
+        {
+          "command": "rest-client.export-file-as-postman",
+          "when": "editorTextFocus && editorLangId == http",
+          "group": "rest-client@5"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "rest-client.export-file-as-postman",
+          "when": "resourceExtname == .http || resourceExtname == .rest",
+          "group": "rest-client@1"
+        },
+        {
+          "command": "rest-client.import-postman-collection",
+          "when": "resourceExtname == .json",
+          "group": "rest-client@2"
         }
       ]
     },
