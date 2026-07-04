@@ -1,0 +1,70 @@
+@baseUrl = https://api.weather.gov
+@userAgent = (my-app.example.com, contact@example.com)
+
+###
+# weather.gov API - Aviation (CWSU / SIGMET)
+# Docs: https://www.weather.gov/documentation/services-web-api
+# The API requires a descriptive User-Agent header identifying your
+# application and a contact email or URL; no API key is needed.
+
+
+# Returns metadata about a Center Weather Service Unit
+# @name cwsu
+GET {{baseUrl}}/aviation/cwsus/ZOB HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of Center Weather Advisories from a CWSU
+# @name cwas
+GET {{baseUrl}}/aviation/cwsus/ZOB/cwas HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of Center Weather Advisories from a CWSU
+# The cwas entries only expose a full "id" URL (already containing the
+# date/sequence pair), so that URL from the cwas list above is used
+# directly as the request target.
+# @name cwa
+GET {{cwas.response.body.$.features[0].properties.id}} HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of SIGMET/AIRMETs
+# Optional query params: start, end, date, atsu, sequence
+# @name sigmetQuery
+GET {{baseUrl}}/aviation/sigmets HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of SIGMET/AIRMETs for the specified ATSU
+# @name sigmetsByATSU
+GET {{baseUrl}}/aviation/sigmets/KKCI HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of SIGMET/AIRMETs for the specified ATSU for the specified date
+# @name sigmetsByATSUByDate
+GET {{baseUrl}}/aviation/sigmets/KKCI/{{$datetime 'YYYY-MM-DD'}} HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a specific SIGMET/AIRMET
+# The sigmetsByATSUByDate entries only expose a full "id" URL (already
+# containing the date/time pair), so that URL from the response above is
+# used directly as the request target.
+# @name sigmet
+GET {{sigmetsByATSUByDate.response.body.$.features[0].properties.id}} HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json

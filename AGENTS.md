@@ -51,6 +51,29 @@ Guidance for AI coding agents working in this repository.
 - Language features (hover/definition/completion/codelens/diagnostics): update corresponding files in [src/providers](src/providers) and ensure registration still matches in [src/extension.ts](src/extension.ts).
 - Settings changes: update contributes configuration in [package.json](package.json) and runtime access in [src/models/configurationSettings.ts](src/models/configurationSettings.ts).
 
+## HTTP Request Tool Policy (Agents)
+
+- Default: use the `rest-client` MCP tools (`list_requests`, `run_request`, `run_file` -
+  registered via [.mcp.json](.mcp.json), implemented in [mcp-server/src/index.js](mcp-server/src/index.js))
+  for any HTTP/API call made on the user's behalf, including ad hoc asks like "get the
+  weather forecast for Huntsville". Prefer an existing `.http` file (see `examples/`) or
+  write one, then call `run_request`/`run_file` - do not shell out to `curl` via Bash for
+  this.
+- Curl is opt-in only. Only use curl when the user explicitly asks for it: phrases like
+  "use curl" / "run curl" / "via curl", or a literal curl command they typed/pasted. The
+  exact detection rules live in [mcp-server/src/transportPolicy.js](mcp-server/src/transportPolicy.js)
+  (`isExplicitCurlRequest`) - treat that file as the source of truth so this doc and the
+  code can't drift.
+- If the `rest-client` MCP tools are not available (not present in your tool list, or a
+  call fails to connect): do not silently fall back to curl. Tell the user the MCP
+  service is unavailable and give next steps - check that `.mcp.json` registers the
+  `rest-client` server, run `cd mcp-server && npm install` if dependencies are missing,
+  then restart the agent session so it reconnects. (This mirrors `selectTransport`'s
+  `mcp_unavailable` error text in `transportPolicy.js`.)
+- This policy only governs *agent-driven* HTTP calls. It does not change the extension's
+  existing human-facing curl support (`Copy Request As cURL`, pasting a curl command
+  directly into a `.http` file) - that's unrelated and unaffected.
+
 ## Known Pitfalls
 
 - There is no stable automated test suite in scripts; rely on lint + build + targeted manual verification.
@@ -71,3 +94,8 @@ Guidance for AI coding agents working in this repository.
 - Lint and build pass locally.
 - Manual validation performed for changed behavior paths.
 - Documentation/settings updated when user-visible behavior changes.
+
+## AI Instruction Sync
+
+- Keep [AGENTS.md](AGENTS.md) and [.github/copilot-instructions.md](.github/copilot-instructions.md) aligned on shared workflow and validation rules.
+- Prefer updating existing guidance sections instead of introducing duplicate or conflicting instructions.

@@ -1,0 +1,15 @@
+@baseUrl = https://api.weather.gov
+@userAgent = (my-app.example.com, contact@example.com)
+
+###
+# weather.gov API - Satellite Thumbnails
+# Docs: https://www.weather.gov/documentation/services-web-api
+# The API requires a descriptive User-Agent header identifying your
+# application and a contact email or URL; no API key is needed.
+
+
+# Returns a thumbnail image for a satellite region. Image services in API are deprecated.
+# @name satellite_thumbnails
+GET {{baseUrl}}/thumbnails/satellite/e HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json

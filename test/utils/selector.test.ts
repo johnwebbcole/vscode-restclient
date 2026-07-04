@@ -341,3 +341,68 @@ describe('Selector.getRequestRanges', () => {
         expect(ranges).toHaveLength(2);
     });
 });
+
+// ---------------------------------------------------------------------------
+// getRequestRangeByName
+// ---------------------------------------------------------------------------
+function documentOf(text: string) {
+    return { getText: () => text } as any;
+}
+
+describe('Selector.getRequestRangeByName', () => {
+    it('finds a named request in the middle of a multi-request file', () => {
+        const text = [
+            '@baseUrl = https://example.com',
+            '',
+            '###',
+            '# @name first',
+            'GET {{baseUrl}}/first',
+            '',
+            '###',
+            '# @name second',
+            'GET {{baseUrl}}/second',
+            '',
+            '###',
+            '# @name third',
+            'GET {{baseUrl}}/third',
+        ].join(EOL);
+
+        const range = Selector.getRequestRangeByName(documentOf(text), 'second');
+        if (!range) {
+            throw new Error('expected a range to be found for "second"');
+        }
+        expect(range.start.line).toBe(7);
+        expect(range.end.line).toBe(7);
+    });
+
+    it('finds a named request before the first delimiter', () => {
+        const text = [
+            '# @name only',
+            'GET https://example.com',
+            '###',
+            '# @name other',
+            'GET https://example.com/other',
+        ].join(EOL);
+
+        const range = Selector.getRequestRangeByName(documentOf(text), 'only');
+        if (!range) {
+            throw new Error('expected a range to be found for "only"');
+        }
+        expect(range.start.line).toBe(0);
+    });
+
+    it('returns null when no request has the given name', () => {
+        const text = [
+            '# @name first',
+            'GET https://example.com',
+        ].join(EOL);
+
+        const range = Selector.getRequestRangeByName(documentOf(text), 'missing');
+        expect(range).toBeNull();
+    });
+
+    it('returns null for an empty document', () => {
+        const range = Selector.getRequestRangeByName(documentOf(''), 'anything');
+        expect(range).toBeNull();
+    });
+});

@@ -1,0 +1,42 @@
+@baseUrl = https://api.weather.gov
+@userAgent = (my-app.example.com, contact@example.com)
+
+###
+# weather.gov API - Gridpoints & Forecasts
+# Docs: https://www.weather.gov/documentation/services-web-api
+# The API requires a descriptive User-Agent header identifying your
+# application and a contact email or URL; no API key is needed.
+
+
+# Returns raw numerical forecast data for a 2.5km grid area
+# @name gridpoint
+GET {{baseUrl}}/gridpoints/TOP/31,80 HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a textual forecast for a 2.5km grid area
+# Optional query params: units
+# @name gridpoint_forecast
+GET {{baseUrl}}/gridpoints/TOP/31,80/forecast HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a textual hourly forecast for a 2.5km grid area
+# Optional query params: units
+# @name gridpoint_forecast_hourly
+GET {{baseUrl}}/gridpoints/TOP/31,80/forecast/hourly HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of observation stations usable for a given 2.5km grid area
+# Optional query params: limit
+# @name gridpoint_stations
+GET {{baseUrl}}/gridpoints/TOP/31,80/stations HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json

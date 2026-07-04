@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "rest-client": {
+      "command": "node",
+      "args": ["mcp-server/src/index.js"]
+    }
+  }
+}

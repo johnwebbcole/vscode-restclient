@@ -275,6 +275,11 @@ We add the capability to directly run [curl request](https://curl.haxx.se/) in R
 ## Copy Request As cURL
 If you need to quickly obtain the curl format of an HTTP request and save it to your clipboard, you can use a handy shortcut. Simply hit `F1` and select/type `Rest Client: Copy Request As cURL`. Alternatively, you can right-click in the editor and select `Copy Request As cURL.`
 
+## MCP Server (AI Agent Integration)
+This repo includes a standalone MCP server (`mcp-server/`) that lets an MCP-aware AI agent (Claude Code, GitHub Copilot, etc.) send requests directly from your `.http`/`.rest` files, using the same file format as this extension. See [mcp-server/README.md](mcp-server/README.md) for setup and available tools.
+
+When an agent has this MCP server available, it should default to it for HTTP/API calls instead of shelling out to `curl` - curl is opt-in only, used when you explicitly ask for it. See [mcp-server/README.md#transport-policy-mcp-vs-curl](mcp-server/README.md#transport-policy-mcp-vs-curl) for the full policy, including what happens if the MCP server is unavailable.
+
 ## Cancel Request
 If you want to cancel a processing request, click the waiting spin icon or use shortcut `Ctrl+Alt+K`(`Cmd+Alt+K` for macOS), or press `F1` and then select/type `Rest Client: Cancel Request`.
 

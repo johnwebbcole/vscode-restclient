@@ -1,0 +1,20 @@
+{
+  "name": "rest-client-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP server that lets an agent run requests from .http/.rest files using the same file format as the REST Client VS Code extension",
+  "type": "module",
+  "bin": {
+    "rest-client-mcp": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test src/**/*.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.13.0",
+    "jsonc-parser": "^3.3.1",
+    "jsonpath-plus": "^10.3.0",
+    "zod": "^3.24.1"
+  }
+}

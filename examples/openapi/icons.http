@@ -1,0 +1,33 @@
+@baseUrl = https://api.weather.gov
+@userAgent = (my-app.example.com, contact@example.com)
+
+###
+# weather.gov API - Forecast Icons
+# Docs: https://www.weather.gov/documentation/services-web-api
+# The API requires a descriptive User-Agent header identifying your
+# application and a contact email or URL; no API key is needed.
+
+
+# Returns a forecast icon. Icon services in API are deprecated.
+# Optional query params: size, fontsize
+# @name icons
+GET {{baseUrl}}/icons/default/day/skc HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a forecast icon. Icon services in API are deprecated.
+# Optional query params: size, fontsize
+# @name iconsDualCondition
+GET {{baseUrl}}/icons/default/day/skc/rain HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of icon codes and textual descriptions. Icon services in API are deprecated.
+# @name icons_summary
+GET {{baseUrl}}/icons HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json

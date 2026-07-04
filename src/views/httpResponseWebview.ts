@@ -154,10 +154,29 @@ export class HttpResponseWebview extends BaseWebview {
         }
     }
 
+    // This command (and save/saveBody below) only acts on whichever response
+    // webview panel currently holds VS Code's 'httpResponsePreviewFocus' active-panel
+    // state - it has no fallback to "the most recent response" the way
+    // rest-client.get-response-body does. Invoking it while that panel isn't the
+    // active one (e.g. from automation that never gave the panel real focus, or
+    // while previewResponseInUntitledDocument is enabled, which never sets this
+    // context at all) leaves activeResponse undefined, so report why instead of
+    // silently doing nothing.
+    private warnNoActiveResponse(action: string) {
+        window.showErrorMessage(
+            `Cannot ${action}: no response preview panel is currently active/focused. ` +
+            `This command requires the HTTP response webview to have focus (context key 'httpResponsePreviewFocus'); ` +
+            `it is not available when 'rest-client.previewResponseInUntitledDocument' is enabled, or when the command ` +
+            `is invoked without the panel being focused. For automation, use 'rest-client.get-response-body' instead, ` +
+            `which reads the last cached response for a named request directly.`);
+    }
+
     @trace('Copy Response Body')
     private async copyBody() {
         if (this.activeResponse) {
             await this.clipboard.writeText(this.activeResponse.body);
+        } else {
+            this.warnNoActiveResponse('copy response body');
         }
     }
 
@@ -171,6 +190,8 @@ export class HttpResponseWebview extends BaseWebview {
             } catch {
                 window.showErrorMessage('Failed to save latest response to disk.');
             }
+        } else {
+            this.warnNoActiveResponse('save response');
         }
     }
 
@@ -185,6 +206,8 @@ export class HttpResponseWebview extends BaseWebview {
             } catch {
                 window.showErrorMessage('Failed to save latest response body to disk');
             }
+        } else {
+            this.warnNoActiveResponse('save response body');
         }
     }
 

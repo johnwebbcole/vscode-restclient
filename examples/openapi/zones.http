@@ -1,0 +1,60 @@
+@baseUrl = https://api.weather.gov
+@userAgent = (my-app.example.com, contact@example.com)
+
+###
+# weather.gov API - Zones
+# Docs: https://www.weather.gov/documentation/services-web-api
+# The API requires a descriptive User-Agent header identifying your
+# application and a contact email or URL; no API key is needed.
+
+
+# Returns a list of zones
+# Optional query params: id, area, region, type, point, include_geometry, limit, effective
+# @name zone_list
+GET {{baseUrl}}/zones HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of zones of a given type
+# Optional query params: id, area, region, type, point, include_geometry, limit, effective
+# @name zone_list_type
+GET {{baseUrl}}/zones/forecast HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns metadata about a given zone
+# Optional query params: effective
+# @name zone
+GET {{baseUrl}}/zones/forecast/CAZ006 HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns the current zone forecast for a given zone
+# @name zone_forecast
+GET {{baseUrl}}/zones/forecast/CAZ006/forecast HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of observations for a given zone
+# Optional query params: start, end, limit
+# @name zone_obs
+GET {{baseUrl}}/zones/forecast/CAZ006/observations HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of observation stations for a given zone
+# Optional query params: limit, cursor
+# @name zone_stations
+GET {{baseUrl}}/zones/forecast/CAZ006/stations HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json

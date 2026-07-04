@@ -84,6 +84,11 @@
         "category": "Rest Client"
       },
       {
+        "command": "rest-client.get-response-body",
+        "title": "Get Response Body (machine-readable, for automation)",
+        "category": "Rest Client"
+      },
+      {
         "command": "rest-client.cancel-request",
         "title": "Cancel Request",
         "category": "Rest Client"

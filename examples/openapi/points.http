@@ -1,0 +1,31 @@
+@baseUrl = https://api.weather.gov
+@userAgent = (my-app.example.com, contact@example.com)
+
+###
+# weather.gov API - Points
+# Docs: https://www.weather.gov/documentation/services-web-api
+# The API requires a descriptive User-Agent header identifying your
+# application and a contact email or URL; no API key is needed.
+
+
+# Returns metadata about a given latitude/longitude point
+# @name point
+GET {{baseUrl}}/points/39.7456,-97.0892 HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns NOAA Weather Radio broadcast script for a latitude/longitude point
+# @name point_radio
+GET {{baseUrl}}/points/39.7456,-97.0892/radio HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of observation stations for a given point
+# @name point_stations
+GET {{baseUrl}}/points/39.7456,-97.0892/stations HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json

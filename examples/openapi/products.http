@@ -1,0 +1,83 @@
+@baseUrl = https://api.weather.gov
+@userAgent = (my-app.example.com, contact@example.com)
+
+###
+# weather.gov API - Text Products
+# Docs: https://www.weather.gov/documentation/services-web-api
+# The API requires a descriptive User-Agent header identifying your
+# application and a contact email or URL; no API key is needed.
+
+
+# Returns a list of text products
+# Optional query params: location, start, end, office, wmoid, type, limit
+# @name products_query
+GET {{baseUrl}}/products HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of valid text product issuance locations
+# @name product_locations
+GET {{baseUrl}}/products/locations HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of valid text product types and codes
+# @name product_types
+GET {{baseUrl}}/products/types HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a specific text product
+# Uses the id of the first product captured by products_query above.
+# The response body's top-level key is "@graph"; jsonpath-plus needs the
+# backtick literal-escape to reference a key starting with "@".
+# @name product
+GET {{baseUrl}}/products/{{products_query.response.body.$.`@graph[0].id}} HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of text products of a given type
+# @name products_type
+GET {{baseUrl}}/products/types/AFD HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of valid text product issuance locations for a given product type
+# @name products_type_locations
+GET {{baseUrl}}/products/types/AFD/locations HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of valid text product types for a given issuance location
+# @name location_products
+GET {{baseUrl}}/products/locations/TOP/types HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of text products of a given type for a given issuance location
+# @name products_type_location
+GET {{baseUrl}}/products/types/AFD/locations/TOP HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns latest text products of a given type for a given issuance location with product text
+# @name latest_product_type_location
+GET {{baseUrl}}/products/types/AFD/locations/TOP/latest HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json

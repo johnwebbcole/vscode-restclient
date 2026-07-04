@@ -5,7 +5,7 @@ import { commands, ExtensionContext, languages, Range, TextDocument, Uri, window
 import { CodeSnippetController } from './controllers/codeSnippetController';
 import { EnvironmentController } from './controllers/environmentController';
 import { HistoryController } from './controllers/historyController';
-import { RequestController } from './controllers/requestController';
+import { RequestController, RequestTarget } from './controllers/requestController';
 import { SwaggerController } from './controllers/swaggerController';
 import { CustomVariableDiagnosticsProvider } from "./providers/customVariableDiagnosticsProvider";
 import { RequestBodyDocumentLinkProvider } from './providers/documentLinkProvider';
@@ -38,8 +38,9 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(historyController);
     context.subscriptions.push(codeSnippetController);
     context.subscriptions.push(environmentController);
-    context.subscriptions.push(commands.registerCommand('rest-client.request', ((document: TextDocument, range: Range) => requestController.run(range))));
+    context.subscriptions.push(commands.registerCommand('rest-client.request', ((document: TextDocument, range: Range, target?: RequestTarget) => requestController.run(range, target))));
     context.subscriptions.push(commands.registerCommand('rest-client.rerun-last-request', () => requestController.rerun()));
+    context.subscriptions.push(commands.registerCommand('rest-client.get-response-body', (target: RequestTarget) => requestController.getResponseBody(target)));
     context.subscriptions.push(commands.registerCommand('rest-client.cancel-request', () => requestController.cancel()));
     context.subscriptions.push(commands.registerCommand('rest-client.history', () => historyController.save()));
     context.subscriptions.push(commands.registerCommand('rest-client.clear-history', () => historyController.clear()));

@@ -243,6 +243,42 @@ export class Selector {
             .map(([index, ]) => +index);
     }
 
+    /**
+     * Locates the request block whose '# @name' comment matches the given name,
+     * without relying on cursor position or an existing text selection. Returns a
+     * range pointing at the first line of that block (never a delimiter line),
+     * suitable for passing straight into getRequest().
+     */
+    public static getRequestRangeByName(document: TextDocument, name: string): Range | null {
+        const lines = document.getText().split(Constants.LineSplitterRegex);
+        const delimiterLineNumbers = this.getDelimiterRows(lines);
+        const blockBoundaries: [number, number][] = [];
+
+        if (delimiterLineNumbers.length === 0) {
+            blockBoundaries.push([0, lines.length - 1]);
+        } else {
+            blockBoundaries.push([0, delimiterLineNumbers[0] - 1]);
+            for (let index = 0; index < delimiterLineNumbers.length - 1; index++) {
+                blockBoundaries.push([delimiterLineNumbers[index] + 1, delimiterLineNumbers[index + 1] - 1]);
+            }
+            blockBoundaries.push([delimiterLineNumbers[delimiterLineNumbers.length - 1] + 1, lines.length - 1]);
+        }
+
+        for (const [start, end] of blockBoundaries) {
+            if (start > end) {
+                continue;
+            }
+
+            const blockLines = lines.slice(start, end + 1);
+            const metadatas = this.parseReqMetadatas(blockLines);
+            if (metadatas.get(RequestMetadata.Name) === name) {
+                return new Range(new Position(start, 0), new Position(start, 0));
+            }
+        }
+
+        return null;
+    }
+
     public static* getMarkdownRestSnippets(document: TextDocument): Generator<Range> {
         const snippetStartRegx = new RegExp('^\`\`\`(' + ['http', 'rest'].join('|') + ')$');
         const snippetEndRegx = /^\`\`\`$/;

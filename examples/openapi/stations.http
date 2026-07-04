@@ -1,0 +1,72 @@
+@baseUrl = https://api.weather.gov
+@userAgent = (my-app.example.com, contact@example.com)
+
+###
+# weather.gov API - Observation Stations
+# Docs: https://www.weather.gov/documentation/services-web-api
+# The API requires a descriptive User-Agent header identifying your
+# application and a contact email or URL; no API key is needed.
+
+
+# Returns a list of observations for a given station
+# Optional query params: start, end, cursor, limit
+# @name station_observation_list
+GET {{baseUrl}}/stations/KJFK/observations HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns the latest observation for a station
+# Optional query params: require_qc
+# @name station_observation_latest
+GET {{baseUrl}}/stations/KJFK/observations/latest HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a single observation.
+# Uses the timestamp of the first observation captured by station_observation_list above
+# @name station_observation_time
+GET {{baseUrl}}/stations/KJFK/observations/{{station_observation_list.response.body.$.features[0].properties.timestamp}} HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns Terminal Aerodrome Forecasts for the specified airport station.
+# @name tafs
+GET {{baseUrl}}/stations/KJFK/tafs HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a single Terminal Aerodrome Forecast.
+# The tafs entries only expose a full "id" URL (already containing the
+# date/time pair), so that URL from the tafs list above is used directly
+# as the request target. The response body's top-level key is "@graph";
+# jsonpath-plus needs the backtick literal-escape to reference a key
+# starting with "@".
+# @name taf
+GET {{tafs.response.body.$.`@graph[0].id}} HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of observation stations.
+# Optional query params: id, state, limit, cursor
+# @name obs_stations
+GET {{baseUrl}}/stations HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns metadata about a given observation station
+# @name obs_station
+GET {{baseUrl}}/stations/KJFK HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json

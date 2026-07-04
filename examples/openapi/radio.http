@@ -1,0 +1,15 @@
+@baseUrl = https://api.weather.gov
+@userAgent = (my-app.example.com, contact@example.com)
+
+###
+# weather.gov API - NOAA Weather Radio
+# Docs: https://www.weather.gov/documentation/services-web-api
+# The API requires a descriptive User-Agent header identifying your
+# application and a contact email or URL; no API key is needed.
+
+
+# Returns NOAA Weather Radio broadcast script for a transmitter
+# @name area_radio
+GET {{baseUrl}}/radio/KIH21/broadcast HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json

@@ -1,0 +1,74 @@
+@baseUrl = https://api.weather.gov
+@userAgent = (my-app.example.com, contact@example.com)
+
+###
+# weather.gov API - Alerts
+# Docs: https://www.weather.gov/documentation/services-web-api
+# The API requires a descriptive User-Agent header identifying your
+# application and a contact email or URL; no API key is needed.
+
+
+# Returns all alerts
+# Optional query params: active, start, end, status, message_type, event, code, area, point, region, region_type, zone, urgency, severity, certainty, limit, cursor
+# @name alerts_query
+GET {{baseUrl}}/alerts HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns all currently active alerts
+# Optional query params: status, message_type, event, code, area, point, region, region_type, zone, urgency, severity, certainty
+# @name alerts_active
+GET {{baseUrl}}/alerts/active HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns info on the number of active alerts
+# @name alerts_active_count
+GET {{baseUrl}}/alerts/active/count HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns active alerts for the given NWS public zone or county
+# @name alerts_active_zone
+GET {{baseUrl}}/alerts/active/zone/CAZ006 HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns active alerts for the given area (state or marine area)
+# @name alerts_active_area
+GET {{baseUrl}}/alerts/active/area/GA HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns active alerts for the given marine region
+# @name alerts_active_region
+GET {{baseUrl}}/alerts/active/region/PA HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of alert types
+# @name alerts_types
+GET {{baseUrl}}/alerts/types HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a specific alert
+# Uses the id of the first alert captured by alerts_active above
+# @name alerts_single
+GET {{baseUrl}}/alerts/{{alerts_active.response.body.$.features[0].properties.id}} HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json

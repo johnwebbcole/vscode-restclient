@@ -1,0 +1,81 @@
+@baseUrl = https://api.weather.gov
+@userAgent = (my-app.example.com, contact@example.com)
+
+###
+# weather.gov API - Radar
+# Docs: https://www.weather.gov/documentation/services-web-api
+# The API requires a descriptive User-Agent header identifying your
+# application and a contact email or URL; no API key is needed.
+
+
+# Returns a list of radar servers
+# Optional query params: reportingHost
+# @name radar_servers
+GET {{baseUrl}}/radar/servers HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns metadata about a given radar server
+# Optional query params: reportingHost
+# @name radar_server
+GET {{baseUrl}}/radar/servers/rds HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of radar spgds
+# Optional query params: published
+# @name radar_spgds
+GET {{baseUrl}}/radar/spgds HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns a list of radar stations
+# Optional query params: stationType, reportingHost, host
+# @name radar_stations
+GET {{baseUrl}}/radar/stations HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns metadata about a given radar station
+# Optional query params: reportingHost, host
+# @name radar_station
+GET {{baseUrl}}/radar/stations/KTLH HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns metadata about a given radar station alarms
+# @name radar_station_alarms
+GET {{baseUrl}}/radar/stations/KTLH/alarms HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns metadata about a given radar queue
+# Optional query params: limit, arrived, created, published, station, type, feed, resolution
+# @name radar_queue
+GET {{baseUrl}}/radar/queues/rds HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json
+
+###
+
+# Returns metadata about a given radar wind profiler
+# NOTE: stationId here is a wind profiler network site, not a NEXRAD radar or ASOS station.
+# The API has no endpoint that lists profiler site ids, so <stationId> can't
+# be chained from another request in this file; substitute a known site id.
+# Optional query params: time, interval
+# @name radar_profiler
+GET {{baseUrl}}/radar/profilers/<stationId> HTTP/1.1
+User-Agent: {{userAgent}}
+Accept: application/geo+json

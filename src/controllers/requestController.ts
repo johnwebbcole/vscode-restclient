@@ -1,5 +1,6 @@
-import { ExtensionContext, Range, TextDocument, ViewColumn, window } from 'vscode';
+import { ExtensionContext, Range, TextDocument, Uri, ViewColumn, window, workspace } from 'vscode';
 import Logger from '../logger';
+import { ResponseHeaders } from '../models/base';
 import { IRestClientSettings, RequestSettings, RestClientSettings } from '../models/configurationSettings';
 import { HistoricalHttpRequest, HttpRequest } from '../models/httpRequest';
 import { RequestMetadata } from '../models/requestMetadata';
@@ -14,12 +15,32 @@ import { getCurrentTextDocument } from '../utils/workspaceUtility';
 import { HttpResponseTextDocumentView } from '../views/httpResponseTextDocumentView';
 import { HttpResponseWebview } from '../views/httpResponseWebview';
 
+// Identifies a request without depending on cursor position or an existing
+// active editor selection, so a request can be targeted from an automation
+// script that only knows a file path and a '# @name' value.
+export interface RequestTarget {
+    uri?: string;
+    name?: string;
+}
+
+export interface ResponseBodySummary {
+    name: string;
+    statusCode: number;
+    statusMessage: string;
+    httpVersion: string;
+    headers: ResponseHeaders;
+    contentType: string | undefined;
+    bodyLength: number;
+    body: string;
+}
+
 export class RequestController {
     private _requestStatusEntry: RequestStatusEntry;
     private _httpClient: HttpClient;
     private _webview: HttpResponseWebview;
     private _textDocumentView: HttpResponseTextDocumentView;
     private _lastRequestSettingTuple: [HttpRequest, IRestClientSettings];
+    private _lastDocument?: TextDocument;
     private _lastPendingRequest?: HttpRequest;
 
     public constructor(context: ExtensionContext) {
@@ -31,14 +52,31 @@ export class RequestController {
     }
 
     @trace('Request')
-    public async run(range: Range) {
-        const editor = window.activeTextEditor;
-        const document = getCurrentTextDocument();
+    public async run(range?: Range, target?: RequestTarget) {
+        let editor = window.activeTextEditor;
+        let document = getCurrentTextDocument();
+
+        // Allow automation to target a file directly instead of depending on
+        // whatever happens to be the active editor.
+        if (target?.uri) {
+            document = await workspace.openTextDocument(Uri.parse(target.uri));
+            editor = await window.showTextDocument(document, { preserveFocus: false, preview: false });
+        }
+
         if (!editor || !document) {
             return;
         }
 
-        const selectedRequest = await Selector.getRequest(editor, range);
+        let requestRange = range ?? null;
+        if (target?.name) {
+            requestRange = Selector.getRequestRangeByName(document, target.name);
+            if (!requestRange) {
+                window.showErrorMessage(`No request named '${target.name}' found in ${document.fileName}.`);
+                return;
+            }
+        }
+
+        const selectedRequest = await Selector.getRequest(editor, requestRange);
         if (!selectedRequest) {
             return;
         }
@@ -63,6 +101,39 @@ export class RequestController {
         await this.runCore(httpRequest, settings, document);
     }
 
+    // Returns the last cached response for a named request as plain data, so
+    // it can be read back by automation without a response webview ever
+    // needing to exist or hold focus (unlike save-response-body/copy-response-body,
+    // which act on the currently focused preview panel).
+    public async getResponseBody(target: RequestTarget): Promise<ResponseBodySummary> {
+        if (!target?.name) {
+            throw new Error("getResponseBody requires a request 'name' (the '# @name' value) to look up a cached response.");
+        }
+
+        const document = target.uri
+            ? await workspace.openTextDocument(Uri.parse(target.uri))
+            : getCurrentTextDocument();
+        if (!document) {
+            throw new Error("No target document. Pass { uri } explicitly, or run this command while an .http file is the active editor.");
+        }
+
+        const response = RequestVariableCache.get(document, target.name);
+        if (!response) {
+            throw new Error(`No cached response for request '${target.name}' in ${document.fileName}. Run 'rest-client.request' with that name first.`);
+        }
+
+        return {
+            name: target.name,
+            statusCode: response.statusCode,
+            statusMessage: response.statusMessage,
+            httpVersion: response.httpVersion,
+            headers: response.headers,
+            contentType: response.contentType,
+            bodyLength: response.bodySizeInBytes,
+            body: response.body,
+        };
+    }
+
     @trace('Rerun Request')
     public async rerun() {
         if (!this._lastRequestSettingTuple) {
@@ -72,7 +143,7 @@ export class RequestController {
         const [request, settings] = this._lastRequestSettingTuple;
 
         // TODO: recover from last request settings
-        await this.runCore(request, settings);
+        await this.runCore(request, settings, this._lastDocument);
     }
 
     @trace('Cancel Request')
@@ -96,6 +167,7 @@ export class RequestController {
         // set last request and last pending request
         this._lastPendingRequest = httpRequest;
         this._lastRequestSettingTuple = [httpRequest, settings];
+        this._lastDocument = document ?? this._lastDocument;
 
         // set http request
         try {
