@@ -1,7 +1,7 @@
 # REST Client
 
-[![Open in Visual Studio Code](https://img.shields.io/static/v1?logo=visualstudiocode&label=&message=Open%20in%20Visual%20Studio%20Code&labelColor=2c2c32&color=007acc&logoColor=007acc)](https://open.vscode.dev/Huachao/vscode-restclient) [![Node CI](https://github.com/Huachao/vscode-restclient/workflows/Node%20CI/badge.svg?event=push)](https://github.com/Huachao/vscode-restclient/actions?query=workflow%3A%22Node+CI%22) [![Join the chat at https://gitter.im/Huachao/vscode-restclient](https://badges.gitter.im/Huachao/vscode-restclient.svg)](https://gitter.im/Huachao/vscode-restclient?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Marketplace Version](https://vsmarketplacebadges.dev/version-short/humao.rest-client.svg)](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) [![Downloads](https://vsmarketplacebadges.dev/downloads-short/humao.rest-client.svg
-)](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) [![Installs](https://vsmarketplacebadges.dev/installs-short/humao.rest-client.svg)](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) [![Rating](https://vsmarketplacebadges.dev/rating-short/humao.rest-client.svg)](https://marketplace.visualstudio.com/items?itemName=humao.rest-client)
+[![Open in Visual Studio Code](https://img.shields.io/static/v1?logo=visualstudiocode&label=&message=Open%20in%20Visual%20Studio%20Code&labelColor=2c2c32&color=007acc&logoColor=007acc)](https://open.vscode.dev/johnwebbcole/vscode-restclient) [![Node CI](https://github.com/johnwebbcole/vscode-restclient/workflows/Node%20CI/badge.svg?event=push)](https://github.com/johnwebbcole/vscode-restclient/actions?query=workflow%3A%22Node+CI%22) [![Marketplace Version](https://vsmarketplacebadges.dev/version-short/JohnCole.restclient-mcp.svg)](https://marketplace.visualstudio.com/items?itemName=JohnCole.restclient-mcp) [![Downloads](https://vsmarketplacebadges.dev/downloads-short/JohnCole.restclient-mcp.svg
+)](https://marketplace.visualstudio.com/items?itemName=JohnCole.restclient-mcp) [![Installs](https://vsmarketplacebadges.dev/installs-short/JohnCole.restclient-mcp.svg)](https://marketplace.visualstudio.com/items?itemName=JohnCole.restclient-mcp) [![Rating](https://vsmarketplacebadges.dev/rating-short/JohnCole.restclient-mcp.svg)](https://marketplace.visualstudio.com/items?itemName=JohnCole.restclient-mcp)
 
 REST Client allows you to send HTTP request and view the response in Visual Studio Code directly. It eliminates the need for a separate tool to test REST APIs and makes API testing convenient and efficient.
 
@@ -9,6 +9,8 @@ REST Client allows you to send HTTP request and view the response in Visual Stud
 * Send/Cancel/Rerun __HTTP request__ in editor and view response in a separate pane with syntax highlight
 * Send __GraphQL query__ and author __GraphQL variables__ in editor
 * Send __cURL command__ in editor and copy HTTP request as `cURL command`
+* Import/export requests as __Postman Collections__, including environments
+* Built-in __MCP server__ so AI agents (Claude Code, GitHub Copilot, etc.) can send requests directly from your `.http`/`.rest` files
 * Auto save and view/clear request history
 * Compose _MULTIPLE_ requests in a single file (separated by `###` delimiter)
 * View image response directly in pane
@@ -110,7 +112,7 @@ REST Client extension also provides the flexibility that you can send the reques
 Press `F1`, type `ext install` then search for `rest-client`.
 
 ## Making Request
-![rest-client](https://raw.githubusercontent.com/Huachao/vscode-restclient/master/images/usage.gif)
+![rest-client](https://raw.githubusercontent.com/johnwebbcole/vscode-restclient/master/images/usage.gif)
 ### Request Line
 The first non-empty line of the selection (or document if nothing is selected) is the _Request Line_.
 Below are some examples of _Request Line_:
@@ -260,7 +262,7 @@ query ($name: String!, $owner: String!) {
 ```
 
 ## Making cURL Request
-![cURL Request](https://raw.githubusercontent.com/Huachao/vscode-restclient/master/images/curl-request.png)
+![cURL Request](https://raw.githubusercontent.com/johnwebbcole/vscode-restclient/master/images/curl-request.png)
 We add the capability to directly run [curl request](https://curl.haxx.se/) in REST Client extension. The issuing request command is the same as raw HTTP one. REST Client will automatically parse the request with specified parser.
 
 `REST Client` doesn't fully support all the options of `cURL`, since underneath we use `request` library to send request which doesn't accept all the `cURL` options. Supported options are listed below:
@@ -275,6 +277,19 @@ We add the capability to directly run [curl request](https://curl.haxx.se/) in R
 ## Copy Request As cURL
 If you need to quickly obtain the curl format of an HTTP request and save it to your clipboard, you can use a handy shortcut. Simply hit `F1` and select/type `Rest Client: Copy Request As cURL`. Alternatively, you can right-click in the editor and select `Copy Request As cURL.`
 
+## Postman Collections
+REST Client can convert between its `.http` file format and Postman Collections/Environments, so you can bring existing Postman work into `.http` files or hand requests off to teammates who use Postman.
+
+### Export
+* __Export Request As Postman Collection__: Press `F1` and select/type `Rest Client: Export Request As Postman Collection`, or right-click the request under your cursor in the editor. Converts just that request into a single-request Postman Collection and copies the JSON to your clipboard, ready to paste into Postman's import dialog.
+* __Export All Requests As Postman Collection__: Press `F1` and select/type `Rest Client: Export All Requests As Postman Collection`, right-click anywhere in an open `.http`/`.rest` file, or right-click a `.http`/`.rest` file in the Explorer. Converts every request in the file into one Postman Collection and prompts you to save it as a `.postman_collection.json` file. After saving, you'll be asked whether to also export your currently active REST Client environment as a matching `.postman_environment.json` file.
+* Exported requests keep their `{{variable}}` references as-is rather than resolving them, so the resulting collection still relies on Postman variables/environment for values, just like the source `.http` file relies on REST Client variables.
+
+### Import
+__Import Postman Collection__: Press `F1` and select/type `Rest Client: Import Postman Collection`, or right-click a `.json` file in the Explorer. The extension detects whether the file is a Postman Collection or a Postman Environment:
+* A __Collection__ is converted into a new untitled `.http` document containing the equivalent requests.
+* An __Environment__ prompts you for a name and whether to save it to your Global or Workspace settings, adding it to `rest-client.environmentVariables` so it shows up when you `Switch Environment`.
+
 ## MCP Server (AI Agent Integration)
 This repo includes a standalone MCP server (`mcp-server/`) that lets an MCP-aware AI agent (Claude Code, GitHub Copilot, etc.) send requests directly from your `.http`/`.rest` files, using the same file format as this extension. See [mcp-server/README.md](mcp-server/README.md) for setup and available tools.
 
@@ -287,13 +302,13 @@ If you want to cancel a processing request, click the waiting spin icon or use s
 Sometimes you may want to refresh the API response, now you could do it simply using shortcut `Ctrl+Alt+L`(`Cmd+Alt+L` for macOS), or press `F1` and then select/type `Rest Client: Rerun Last Request` to rerun the last request.
 
 ## Request History
-![request-history](https://raw.githubusercontent.com/Huachao/vscode-restclient/master/images/request-history.png)
+![request-history](https://raw.githubusercontent.com/johnwebbcole/vscode-restclient/master/images/request-history.png)
 Every time you send an http request, the request details, including method, url, headers, and body, are saved into a file for future reference. To access this content, you can use the shortcut `Ctrl+Alt+H`(`Cmd+Alt+H` for macOS), or press `F1` and then select/type `Rest Client: Request History`. This will allow you to view the last __50__ request items in time reversing order, displaying the method, url, and request time for each one. After specified request history item is selected, the request details would be displayed in a temp file, you can view the request details or follow previous step to trigger the request again.
 
 You can also clear request history by pressing `F1` and then selecting/typing `Rest Client: Clear Request History`.
 
 ## Save Full Response
-![Save Response](https://raw.githubusercontent.com/Huachao/vscode-restclient/master/images/response.gif)
+![Save Response](https://raw.githubusercontent.com/johnwebbcole/vscode-restclient/master/images/response.gif)
 In the upper right corner of the response preview tab, we add a new icon to save the latest response to local file system. After you click the `Save Full Response` icon, it will prompt the window with the saved response file path. You can click the `Open` button to open the saved response file in current workspace or click `Copy Path` to copy the saved response path to clipboard.
 
 ## Save Response Body
@@ -401,7 +416,7 @@ Authorization: COGNITO <Username> <Password> <Region> <UserPoolId> <ClientId>
 ```
 
 ## Generate Code Snippet
-![Generate Code Snippet](https://raw.githubusercontent.com/Huachao/vscode-restclient/master/images/code-snippet.gif)
+![Generate Code Snippet](https://raw.githubusercontent.com/johnwebbcole/vscode-restclient/master/images/code-snippet.gif)
 Once you’ve finalized your request in REST Client extension, you might want to make the same request from your source code. We allow you to generate snippets of code in various languages and libraries that will help you achieve this. Once you prepared a request as previously, use shortcut `Ctrl+Alt+C`(`Cmd+Alt+C` for macOS), or right-click in the editor and then select `Generate Code Snippet` in the menu, or press `F1` and then select/type `Rest Client: Generate Code Snippet`, it will pop up the language pick list, as well as library list. After you selected the code snippet language/library you want, the generated code snippet will be previewed in a separate panel of Visual Studio Code, you can click the `Copy Code Snippet` icon in the tab title to copy it to clipboard.
 
 ## HTTP Language
@@ -412,7 +427,7 @@ Add language support for HTTP request, with features like __syntax highlight__, 
 
 If you want to enable language association in other cases, just change the language mode in the right bottom of `Visual Studio Code` to `HTTP`.
 
-![HTTP Language](https://raw.githubusercontent.com/Huachao/vscode-restclient/master/images/http.png)
+![HTTP Language](https://raw.githubusercontent.com/johnwebbcole/vscode-restclient/master/images/http.png)
 ### Auto Completion
 Currently, auto completion will be enabled for following seven categories:
 
@@ -426,7 +441,7 @@ Currently, auto completion will be enabled for following seven categories:
 
 ### Navigate to Symbols in Request File
 A single `http` file may define lots of requests and file level custom variables, it will be difficult to find the request/variable you want. We leverage from the _Goto Symbol Feature_ of _Visual Studio Code_ to support to navigate(goto) to request/variable with shortcut `Ctrl+Shift+O`(`Cmd+Shift+O` for macOS), or simply press `F1`, type `@`.
-![Goto Symbols](https://raw.githubusercontent.com/Huachao/vscode-restclient/master/images/navigate.png)
+![Goto Symbols](https://raw.githubusercontent.com/johnwebbcole/vscode-restclient/master/images/navigate.png)
 
 ## Environments
 Environments give you the ability to customize requests using variables, and you can easily switch environment without changing requests in `http` file. A common usage is having different configurations for different web service environments, like devbox, sandbox, and production. We also support the __shared__ environment(identified by special environment name _$shared_) to provide a set of variables that are available in all environments. And you can define the same name variable in your specified environment to overwrite the value in shared environment. Currently, active environment's name is displayed at the right bottom of `Visual Studio Code`, when you click it, you can switch environment in the pop-up list. And you can also switch environment using shortcut `Ctrl+Alt+E`(`Cmd+Alt+E` for macOS), or press `F1` and then select/type `Rest Client: Switch Environment`.
@@ -699,7 +714,7 @@ Date: {{$datetime rfc1123}}
     "local_custom_date": "{{$localDatetime 'YYYY-MM-DD'}}"
 }
 ```
-> More details about `aadToken` (Azure Active Directory Token) can be found on [Wiki](https://github.com/Huachao/vscode-restclient/wiki/Azure-Active-Directory-Authentication-Samples)
+> More details about `aadToken` (Azure Active Directory Token) can be found on the [original project's Wiki](https://github.com/Huachao/vscode-restclient/wiki/Azure-Active-Directory-Authentication-Samples)
 
 ## Customize Response Preview
 REST Client Extension adds the ability to control the font family, size and weight used in the response preview.
@@ -763,7 +778,7 @@ no-cookie-jar | `# @no-cookie-jar` | Don't save cookies in the cookie jar
 See CHANGELOG [here](CHANGELOG.md)
 
 ## Special Thanks
-All the amazing [contributors](https://github.com/Huachao/vscode-restclient/graphs/contributors)❤️
+This project is a fork of [Huachao Mao's REST Client](https://github.com/Huachao/vscode-restclient) — all the amazing [original contributors](https://github.com/Huachao/vscode-restclient/graphs/contributors)❤️
 
 ## Feedback
-Please provide feedback through the [GitHub Issue](https://github.com/Huachao/vscode-restclient/issues) system, or fork the repository and submit PR.
+Please provide feedback through the [GitHub Issue](https://github.com/johnwebbcole/vscode-restclient/issues) system, or fork the repository and submit PR.
