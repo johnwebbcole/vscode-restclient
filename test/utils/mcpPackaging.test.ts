@@ -36,5 +36,9 @@ describe('MCP packaging metadata', () => {
         expect(commands).toContainEqual(expect.objectContaining({
             command: 'rest-client.register-mcp-server',
         }));
+
+        expect(commands).toContainEqual(expect.objectContaining({
+            command: 'rest-client.mcp-server-status',
+        }));
     });
 });

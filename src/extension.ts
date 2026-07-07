@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import {
     commands,
     ExtensionContext,
+    FileType,
     languages,
     lm,
     McpServerDefinition,
@@ -14,7 +15,6 @@ import {
     Uri,
     window,
     workspace,
-    WorkspaceEdit,
     WorkspaceFolder,
 } from 'vscode';
 import { CodeSnippetController } from './controllers/codeSnippetController';
@@ -39,13 +39,18 @@ import { RequestVariableDefinitionProvider } from './providers/requestVariableDe
 import { RequestVariableHoverProvider } from './providers/requestVariableHoverProvider';
 import { AadTokenCache } from './utils/aadTokenCache';
 import { ConfigurationDependentRegistration } from './utils/dependentRegistration';
-import { createMcpStdioServerConfig, upsertMcpServerConfig } from './utils/mcpRegistration';
+import { isCommandAvailable, resolveUserMcpConfigPath } from './utils/mcpAutoSetup';
+import { createMcpStdioServerConfig, InvalidMcpConfigError, isServerConfigured, McpStdioServerConfig, upsertMcpServerConfig } from './utils/mcpRegistration';
 import { UserDataManager } from './utils/userDataManager';
 
 const MCP_SERVER_NAME = 'rest-client';
 const MCP_PROVIDER_ID = 'restclient-mcp.bundled-mcp-server';
 const REGISTER_MCP_SERVER_COMMAND = 'rest-client.register-mcp-server';
-const MCP_GUIDANCE_KEY = 'rest-client.mcpGuidanceShown';
+const MCP_SERVER_STATUS_COMMAND = 'rest-client.mcp-server-status';
+const MCP_AUTO_SETUP_DONE_KEY = 'rest-client.mcpAutoSetupDone';
+// Best-effort only: used (if present) to focus VS Code's dedicated MCP config UI after we've
+// already written the file ourselves. Never required for registration to succeed.
+const MCP_OPEN_USER_CONFIG_COMMAND = 'mcp.openUserConfiguration';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -84,7 +89,8 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(commands.registerCommand('rest-client.export-request-as-postman', () => postmanController.exportRequestAsPostman()));
     context.subscriptions.push(commands.registerCommand('rest-client.export-file-as-postman', (uri?: Uri) => postmanController.exportFileAsPostman(uri)));
     context.subscriptions.push(commands.registerCommand('rest-client.import-postman-collection', (uri?: Uri) => postmanController.importPostmanCollection(uri)));
-    context.subscriptions.push(commands.registerCommand(REGISTER_MCP_SERVER_COMMAND, () => registerWorkspaceMcpServer(context)));
+    context.subscriptions.push(commands.registerCommand(REGISTER_MCP_SERVER_COMMAND, () => runMcpRegistration(context, true)));
+    context.subscriptions.push(commands.registerCommand(MCP_SERVER_STATUS_COMMAND, () => showMcpRegistrationStatus(context)));
 
 
     const documentSelector = [
@@ -120,7 +126,9 @@ export async function activate(context: ExtensionContext) {
     const diagnosticsProvider = new CustomVariableDiagnosticsProvider();
     context.subscriptions.push(diagnosticsProvider);
 
-    void showMcpServerGuidance(context);
+    // Fire-and-forget: register the bundled MCP server automatically so users don't have to run
+    // the command manually. Silent unless something needs the user's attention (see runMcpRegistration).
+    void runMcpRegistration(context, false);
 }
 
 // this method is called when your extension is deactivated
@@ -178,139 +186,16 @@ async function resolveBundledMcpServerDefinition(
     return server;
 }
 
-async function showMcpServerGuidance(context: ExtensionContext): Promise<void> {
-    if (context.globalState.get<boolean>(MCP_GUIDANCE_KEY)) {
-        return;
-    }
-
-    await context.globalState.update(MCP_GUIDANCE_KEY, true);
-
-    const action = await window.showInformationMessage(
-        'Rest Client MCP server is available in Chat tools after install. If it does not appear, run "Rest Client MCP: Register MCP Server" from the Command Palette.',
-        'Register Now'
-    );
-
-    if (action === 'Register Now') {
-        await registerWorkspaceMcpServer(context);
-    }
+function getBundledServerScriptPath(context: ExtensionContext): Uri {
+    return Uri.file(path.join(context.extensionPath, 'mcp-server', 'src', 'index.js'));
 }
 
-async function registerWorkspaceMcpServer(context: ExtensionContext): Promise<void> {
-    const target = await selectMcpRegistrationTarget();
-    if (!target) {
-        return;
-    }
-
-    const bundledServer = createMcpStdioServerConfig(
+function buildServerConfig(context: ExtensionContext): McpStdioServerConfig {
+    return createMcpStdioServerConfig(
         process.execPath,
         getBundledServerScriptPath(context).fsPath,
         context.extensionPath
     );
-
-    if (target === 'user') {
-        await registerUserMcpServer(bundledServer);
-        return;
-    }
-
-    const selectedFolder = await selectWorkspaceFolder();
-    if (!selectedFolder) {
-        window.showWarningMessage('Rest Client MCP registration needs an open workspace folder. Open a folder and run "Rest Client MCP: Register MCP Server" again.');
-        return;
-    }
-
-    const mcpConfigUri = Uri.joinPath(selectedFolder.uri, '.vscode', 'mcp.json');
-
-    try {
-        const currentContent = await readUtf8IfExists(mcpConfigUri);
-        const result = upsertMcpServerConfig(currentContent, MCP_SERVER_NAME, bundledServer);
-
-        if (result.status !== 'unchanged') {
-            await workspace.fs.writeFile(mcpConfigUri, Buffer.from(result.content, 'utf8'));
-        }
-
-        if (result.status === 'unchanged') {
-            window.showInformationMessage('Rest Client MCP server is already registered in workspace .vscode/mcp.json. If tools are still missing, run "MCP: List Servers" and start or trust the server.');
-            return;
-        }
-
-        const action = await window.showInformationMessage(
-            'Rest Client MCP server registration updated in workspace .vscode/mcp.json. Run "MCP: List Servers" to start/trust it if needed.',
-            'Open Config'
-        );
-
-        if (action === 'Open Config') {
-            const document = await workspace.openTextDocument(mcpConfigUri);
-            await window.showTextDocument(document);
-        }
-    } catch (error) {
-        Logger.error('Failed to register Rest Client MCP server in workspace mcp.json.', error);
-        window.showErrorMessage(`Rest Client MCP registration failed: ${error instanceof Error ? error.message : String(error)}. Check the REST output channel and MCP server logs for details.`);
-    }
-}
-
-async function registerUserMcpServer(serverConfig: ReturnType<typeof createMcpStdioServerConfig>): Promise<void> {
-    try {
-        await commands.executeCommand('mcp.openUserConfiguration');
-        const activeEditor = window.activeTextEditor;
-        if (!activeEditor || path.basename(activeEditor.document.uri.fsPath).toLowerCase() !== 'mcp.json') {
-            window.showWarningMessage('Could not locate the user mcp.json editor. Run "MCP: Open User Configuration", then rerun "Rest Client MCP: Register MCP Server".');
-            return;
-        }
-
-        const currentContent = activeEditor.document.getText();
-        const result = upsertMcpServerConfig(currentContent, MCP_SERVER_NAME, serverConfig);
-
-        if (result.status === 'unchanged') {
-            window.showInformationMessage('Rest Client MCP server is already registered in user mcp.json. If tools are still missing, run "MCP: List Servers" and start or trust the server.');
-            return;
-        }
-
-        const edit = new WorkspaceEdit();
-        const fullRange = new Range(
-            activeEditor.document.positionAt(0),
-            activeEditor.document.positionAt(currentContent.length)
-        );
-        edit.replace(activeEditor.document.uri, fullRange, result.content);
-        await workspace.applyEdit(edit);
-        await activeEditor.document.save();
-
-        window.showInformationMessage('Rest Client MCP server registration updated in user mcp.json. Run "MCP: List Servers" to start/trust it if needed.');
-    } catch (error) {
-        Logger.error('Failed to register Rest Client MCP server in user mcp.json.', error);
-        window.showErrorMessage(`Rest Client MCP user registration failed: ${error instanceof Error ? error.message : String(error)}. Run "MCP: Open User Configuration" and verify your MCP setup.`);
-    }
-}
-
-async function selectMcpRegistrationTarget(): Promise<'workspace' | 'user' | undefined> {
-    const options: Array<{ label: string; target: 'workspace' | 'user' }> = [
-        { label: 'Workspace (.vscode/mcp.json)', target: 'workspace' },
-        { label: 'User profile (global mcp.json)', target: 'user' },
-    ];
-
-    const selected = await window.showQuickPick(options, {
-        placeHolder: 'Choose where to register Rest Client MCP server',
-    });
-
-    return selected?.target;
-}
-
-async function selectWorkspaceFolder(): Promise<WorkspaceFolder | undefined> {
-    if (!workspace.workspaceFolders || workspace.workspaceFolders.length === 0) {
-        return undefined;
-    }
-
-    if (workspace.workspaceFolders.length === 1) {
-        return workspace.workspaceFolders[0];
-    }
-
-    const selected = await window.showWorkspaceFolderPick({
-        placeHolder: 'Select the workspace folder where .vscode/mcp.json should be updated',
-    });
-    return selected;
-}
-
-function getBundledServerScriptPath(context: ExtensionContext): Uri {
-    return Uri.file(path.join(context.extensionPath, 'mcp-server', 'src', 'index.js'));
 }
 
 async function readUtf8IfExists(uri: Uri): Promise<string | undefined> {
@@ -318,11 +203,291 @@ async function readUtf8IfExists(uri: Uri): Promise<string | undefined> {
         const data = await workspace.fs.readFile(uri);
         return Buffer.from(data).toString('utf8');
     } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (message.includes('FileNotFound')) {
+        if (isFileNotFound(error)) {
             return undefined;
         }
 
         throw error;
     }
+}
+
+function isFileNotFound(error: unknown): boolean {
+    if (error && typeof error === 'object' && 'code' in error && (error as { code?: unknown }).code === 'FileNotFound') {
+        return true;
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes('FileNotFound');
+}
+
+/**
+ * The outcome of attempting to register the server at a single target (workspace or user).
+ * `error: 'invalid-json'` is only reachable after the interactive recovery flow declines to fix
+ * the file, since the auto/silent path always tries recovery for the user first.
+ */
+type McpTargetResult =
+    | { kind: 'success'; status: McpConfigUpsertStatusLike; uri: Uri }
+    | { kind: 'skipped'; reason: string }
+    | { kind: 'error'; message: string; uri?: Uri };
+
+type McpConfigUpsertStatusLike = 'added' | 'updated' | 'unchanged';
+
+async function selectWorkspaceFolder(interactive: boolean): Promise<WorkspaceFolder | undefined> {
+    const folders = workspace.workspaceFolders;
+    if (!folders || folders.length === 0) {
+        return undefined;
+    }
+
+    if (folders.length === 1 || !interactive) {
+        return folders[0];
+    }
+
+    const selected = await window.showWorkspaceFolderPick({
+        placeHolder: 'Select the workspace folder where .vscode/mcp.json should be updated',
+    });
+    return selected ?? folders[0];
+}
+
+function resolveWorkspaceMcpConfigUri(folder: WorkspaceFolder): Uri {
+    return Uri.joinPath(folder.uri, '.vscode', 'mcp.json');
+}
+
+/**
+ * Derives the user-profile mcp.json location from `ExtensionContext.globalStorageUri` (a stable,
+ * documented API) instead of a hardcoded per-OS path or the `mcp.openUserConfiguration` command.
+ * Confirms the parent "User" directory actually exists before trusting the guess, so we can fall
+ * back to "undeterminable" rather than writing to a bogus location in an unusual environment.
+ */
+async function resolveUserMcpConfigUri(context: ExtensionContext): Promise<Uri | undefined> {
+    const candidate = Uri.file(resolveUserMcpConfigPath(context.globalStorageUri.fsPath));
+    const userDir = Uri.joinPath(candidate, '..');
+
+    try {
+        const stat = await workspace.fs.stat(userDir);
+        return (stat.type & FileType.Directory) !== 0 ? candidate : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * Reads, upserts, and (if changed) writes the MCP config at `uri`. Creates the parent directory
+ * first since `.vscode/mcp.json` commonly doesn't exist yet. Set `resetContent` to bypass reading
+ * the current file (used by the invalid-JSON "back up & reset" recovery path).
+ */
+async function upsertMcpConfigAtUri(
+    uri: Uri,
+    serverConfig: McpStdioServerConfig,
+    resetContent = false
+): Promise<McpConfigUpsertStatusLike> {
+    const currentContent = resetContent ? undefined : await readUtf8IfExists(uri);
+    const result = upsertMcpServerConfig(currentContent, MCP_SERVER_NAME, serverConfig);
+
+    if (result.status !== 'unchanged') {
+        await workspace.fs.createDirectory(Uri.joinPath(uri, '..'));
+        await workspace.fs.writeFile(uri, Buffer.from(result.content, 'utf8'));
+    }
+
+    return result.status;
+}
+
+async function setupMcpTarget(
+    label: string,
+    uri: Uri | undefined,
+    skipReason: string | undefined,
+    serverConfig: McpStdioServerConfig,
+    interactive: boolean
+): Promise<McpTargetResult> {
+    if (!uri) {
+        return { kind: 'skipped', reason: skipReason ?? `${label} target is unavailable.` };
+    }
+
+    try {
+        const status = await upsertMcpConfigAtUri(uri, serverConfig);
+        return { kind: 'success', status, uri };
+    } catch (error) {
+        if (error instanceof InvalidMcpConfigError) {
+            return offerInvalidJsonRecovery(label, uri, serverConfig, interactive);
+        }
+
+        Logger.error(`Failed to register Rest Client MCP server in ${label.toLowerCase()} mcp.json.`, error);
+        return { kind: 'error', message: error instanceof Error ? error.message : String(error), uri };
+    }
+}
+
+async function offerInvalidJsonRecovery(
+    label: string,
+    uri: Uri,
+    serverConfig: McpStdioServerConfig,
+    interactive: boolean
+): Promise<McpTargetResult> {
+    const prompt = `Rest Client MCP could not update ${uri.fsPath} because it contains invalid JSON.`;
+    const showPrompt = interactive ? window.showErrorMessage : window.showWarningMessage;
+
+    const choice = await showPrompt(prompt, 'Back Up && Reset', 'Open File');
+
+    if (choice === 'Open File') {
+        const document = await workspace.openTextDocument(uri);
+        await window.showTextDocument(document);
+        return { kind: 'error', message: 'contains invalid JSON; left unchanged for manual editing', uri };
+    }
+
+    if (choice === 'Back Up && Reset') {
+        try {
+            const original = await readUtf8IfExists(uri);
+            if (original !== undefined) {
+                const backupUri = uri.with({ path: `${uri.path}.bak-${Date.now()}` });
+                await workspace.fs.writeFile(backupUri, Buffer.from(original, 'utf8'));
+            }
+
+            const status = await upsertMcpConfigAtUri(uri, serverConfig, true);
+            return { kind: 'success', status, uri };
+        } catch (error) {
+            Logger.error(`Failed to back up and reset ${label.toLowerCase()} mcp.json.`, error);
+            return { kind: 'error', message: `backup/reset failed: ${error instanceof Error ? error.message : String(error)}`, uri };
+        }
+    }
+
+    return { kind: 'error', message: 'contains invalid JSON; left unchanged', uri };
+}
+
+/**
+ * Registers the bundled MCP server at both the workspace and user targets using the same
+ * resilient upsert logic, whether triggered silently on activation or explicitly via the
+ * "Register MCP Server" command. Never depends on `mcp.openUserConfiguration` to succeed.
+ */
+async function runMcpRegistration(context: ExtensionContext, interactive: boolean): Promise<void> {
+    const serverConfig = buildServerConfig(context);
+
+    const folder = await selectWorkspaceFolder(interactive);
+    const workspaceResult = await setupMcpTarget(
+        'Workspace',
+        folder ? resolveWorkspaceMcpConfigUri(folder) : undefined,
+        'no workspace folder is open',
+        serverConfig,
+        interactive
+    );
+
+    const userUri = await resolveUserMcpConfigUri(context);
+    const userResult = await setupMcpTarget(
+        'User profile',
+        userUri,
+        'could not reliably locate the user profile mcp.json in this environment',
+        serverConfig,
+        interactive
+    );
+
+    await reportMcpRegistrationOutcome(context, workspaceResult, userResult, interactive);
+}
+
+const MCP_STATUS_VERBS: Record<McpConfigUpsertStatusLike, string> = {
+    unchanged: 'already registered',
+    added: 'registered',
+    updated: 'updated',
+};
+
+function describeSuccess(result: Extract<McpTargetResult, { kind: 'success' }>): string {
+    return `${MCP_STATUS_VERBS[result.status]} at ${result.uri.fsPath}`;
+}
+
+function describeNonSuccess(result: McpTargetResult): string {
+    if (result.kind === 'skipped') {
+        return result.reason;
+    }
+    if (result.kind === 'error') {
+        return result.message;
+    }
+    return describeSuccess(result);
+}
+
+async function reportMcpRegistrationOutcome(
+    context: ExtensionContext,
+    workspaceResult: McpTargetResult,
+    userResult: McpTargetResult,
+    interactive: boolean
+): Promise<void> {
+    const hasError = workspaceResult.kind === 'error' || userResult.kind === 'error';
+    const alreadyNotified = context.globalState.get<boolean>(MCP_AUTO_SETUP_DONE_KEY, false);
+
+    // Stay quiet on routine, unchanged startups once the user has already seen a summary once.
+    if (!interactive && alreadyNotified && !hasError) {
+        return;
+    }
+
+    await context.globalState.update(MCP_AUTO_SETUP_DONE_KEY, true);
+
+    if (workspaceResult.kind === 'success' && userResult.kind === 'success') {
+        // Don't await the button click: the registration work is already done, and a command
+        // invocation shouldn't hang on a notification nobody may ever dismiss.
+        void window.showInformationMessage(
+            `Rest Client MCP server ${describeSuccess(workspaceResult)} (workspace) and ${describeSuccess(userResult)} (user profile). Run "MCP: List Servers" to start/trust it if needed.`,
+            'Open Workspace Config'
+        ).then(action => {
+            if (action === 'Open Workspace Config') {
+                void openMcpConfig(workspaceResult.uri);
+            }
+        });
+        return;
+    }
+
+    if (workspaceResult.kind === 'success') {
+        window.showInformationMessage(
+            `Rest Client MCP server ${describeSuccess(workspaceResult)}. User profile registration was skipped: ${describeNonSuccess(userResult)}.`
+        );
+        return;
+    }
+
+    if (userResult.kind === 'success') {
+        window.showInformationMessage(
+            `Rest Client MCP server ${describeSuccess(userResult)}. Workspace registration was skipped: ${describeNonSuccess(workspaceResult)}.`
+        );
+        return;
+    }
+
+    // Both targets failed or were skipped - only surface this as an error if there's actually
+    // something actionable to fix; a workspace-less window with no user target is expected, not a failure.
+    if (!hasError) {
+        return;
+    }
+
+    window.showErrorMessage(
+        `Rest Client MCP registration could not complete automatically. Workspace: ${describeNonSuccess(workspaceResult)}. User profile: ${describeNonSuccess(userResult)}. Run "Rest Client MCP: Register MCP Server" from the Command Palette to retry.`
+    );
+}
+
+async function openMcpConfig(uri: Uri): Promise<void> {
+    if (await isCommandAvailable(MCP_OPEN_USER_CONFIG_COMMAND, () => commands.getCommands(true))) {
+        try {
+            await commands.executeCommand(MCP_OPEN_USER_CONFIG_COMMAND);
+            return;
+        } catch (error) {
+            Logger.warn(`"${MCP_OPEN_USER_CONFIG_COMMAND}" command failed; falling back to opening the file directly.`, error);
+        }
+    }
+
+    const document = await workspace.openTextDocument(uri);
+    await window.showTextDocument(document);
+}
+
+async function showMcpRegistrationStatus(context: ExtensionContext): Promise<void> {
+    const folder = await selectWorkspaceFolder(false);
+    const parts: string[] = [];
+
+    if (folder) {
+        const uri = resolveWorkspaceMcpConfigUri(folder);
+        const registered = isServerConfigured(await readUtf8IfExists(uri), MCP_SERVER_NAME);
+        parts.push(`Workspace: ${registered ? 'registered' : 'not registered'} (${uri.fsPath})`);
+    } else {
+        parts.push('Workspace: no folder open');
+    }
+
+    const userUri = await resolveUserMcpConfigUri(context);
+    if (userUri) {
+        const registered = isServerConfigured(await readUtf8IfExists(userUri), MCP_SERVER_NAME);
+        parts.push(`User profile: ${registered ? 'registered' : 'not registered'} (${userUri.fsPath})`);
+    } else {
+        parts.push('User profile: could not be determined in this environment');
+    }
+
+    window.showInformationMessage(`Rest Client MCP status — ${parts.join(' | ')}. Run "MCP: List Servers" to check start/trust state.`);
 }

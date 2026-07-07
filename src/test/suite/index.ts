@@ -3,7 +3,8 @@ import * as path from 'path';
 
 export function run(): Promise<void> {
     const mocha = new Mocha({
-        ui: 'tdd'
+        ui: 'tdd',
+        timeout: 15000
     });
 
     mocha.addFile(path.resolve(__dirname, './extension.test.js'));

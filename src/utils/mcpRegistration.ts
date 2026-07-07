@@ -1,4 +1,4 @@
-import { parse } from 'jsonc-parser';
+import { parse, ParseError } from 'jsonc-parser';
 
 export interface McpStdioServerConfig {
     type: 'stdio';
@@ -19,6 +19,18 @@ interface McpConfigDocument {
     [key: string]: unknown;
 }
 
+// Thrown instead of silently discarding the user's file when it can't be parsed, so callers can
+// offer an explicit recovery path (open for manual fix, or back up and reset) rather than clobbering it.
+export class InvalidMcpConfigError extends Error {
+    public readonly parseErrors: ParseError[];
+
+    constructor(parseErrors: ParseError[]) {
+        super('The MCP configuration file contains invalid JSON.');
+        this.name = 'InvalidMcpConfigError';
+        this.parseErrors = parseErrors;
+    }
+}
+
 export function createMcpStdioServerConfig(command: string, scriptPath: string, cwd: string): McpStdioServerConfig {
     return {
         type: 'stdio',
@@ -33,9 +45,7 @@ export function upsertMcpServerConfig(
     serverName: string,
     serverConfig: McpStdioServerConfig
 ): McpConfigUpsertResult {
-    const raw = content?.trim();
-    const parsed = raw ? parse(raw) : {};
-    const normalizedRoot: McpConfigDocument = isRecord(parsed) ? parsed : {};
+    const normalizedRoot = parseMcpConfigDocument(content);
     const servers = isRecord(normalizedRoot.servers) ? normalizedRoot.servers : {};
     const existing = servers[serverName];
 
@@ -53,6 +63,32 @@ export function upsertMcpServerConfig(
         content: `${JSON.stringify(normalizedRoot, null, 2)}\n`,
         status,
     };
+}
+
+// Reports whether `serverName` is present in the config without rewriting anything; used by the
+// status check command. Treats unparsable content as "not registered" rather than throwing.
+export function isServerConfigured(content: string | undefined, serverName: string): boolean {
+    try {
+        const root = parseMcpConfigDocument(content);
+        return isRecord(root.servers) && root.servers[serverName] !== undefined;
+    } catch {
+        return false;
+    }
+}
+
+function parseMcpConfigDocument(content: string | undefined): McpConfigDocument {
+    const raw = content?.trim();
+    if (!raw) {
+        return {};
+    }
+
+    const errors: ParseError[] = [];
+    const parsed = parse(raw, errors, { allowTrailingComma: true });
+    if (errors.length > 0) {
+        throw new InvalidMcpConfigError(errors);
+    }
+
+    return isRecord(parsed) ? parsed : {};
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

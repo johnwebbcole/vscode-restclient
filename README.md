@@ -120,12 +120,12 @@ REST Client extension also provides the flexibility that you can send the reques
 Press `F1`, type `ext install` then search for `rest-client`.
 
 ### MCP Auto-Registration (Chat Tools)
-After installing this extension, VS Code discovers the bundled Rest Client MCP server automatically through the extension's MCP server definition provider.
+After installing this extension, VS Code discovers the bundled Rest Client MCP server automatically through the extension's MCP server definition provider, and the extension also writes a `rest-client` entry into your workspace `.vscode/mcp.json` (and, when it can reliably locate it, your user profile `mcp.json`) the first time it activates - no manual step required. Re-activation is idempotent, so it never creates duplicate entries.
 
 If the server is not visible in chat tools right away:
 1. Run `MCP: List Servers`.
 2. Start/trust the `rest-client` server if prompted.
-3. If needed, run `Rest Client MCP: Register MCP Server` and choose Workspace or User Profile to add/update `mcp.json`.
+3. If needed, run `Rest Client MCP: Register MCP Server` to re-run registration for both targets, or `Rest Client MCP: Show MCP Server Status` to check whether it's already registered.
 
 ## Making Request
 ![rest-client](https://raw.githubusercontent.com/johnwebbcole/vscode-restclient/master/images/usage.gif)
@@ -309,7 +309,7 @@ __Import Postman Collection__: Press `F1` and select/type `Rest Client: Import P
 ## MCP Server (AI Agent Integration)
 This extension bundles an MCP server runtime (`mcp-server/`) and publishes it to VS Code chat tools automatically on install. That lets an MCP-aware AI agent (Claude Code, GitHub Copilot, etc.) send requests directly from your `.http`/`.rest` files using the same file format as this extension.
 
-If your environment blocks automatic discovery, run `Rest Client MCP: Register MCP Server` to create or update workspace/user `mcp.json` with an idempotent `rest-client` server entry.
+The extension also writes an idempotent `rest-client` entry into workspace/user `mcp.json` automatically on activation. If your environment blocks automatic discovery, run `Rest Client MCP: Register MCP Server` to retry that same registration on demand.
 
 When an agent has this MCP server available, it should default to it for HTTP/API calls instead of shelling out to `curl` - curl is opt-in only, used when you explicitly ask for it. See [mcp-server/README.md#transport-policy-mcp-vs-curl](mcp-server/README.md#transport-policy-mcp-vs-curl) for the full policy, including what happens if the MCP server is unavailable.
 
