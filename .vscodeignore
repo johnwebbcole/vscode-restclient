@@ -1,8 +1,6 @@
 .github/**
 .vscode/**
 .claude/**
-mcp-server/**
-node_modules
 dist/**/*.map
 out/**
 out-test/**
@@ -28,3 +26,10 @@ images/http.png
 images/request-history.png
 images/navigate.png
 images/curl-request.png
+
+# Keep bundled MCP runtime code, but exclude nested dev/install artifacts.
+mcp-server/node_modules/**
+mcp-server/src/**/*.test.js
+mcp-server/src/**/*.integration.test.js
+mcp-server/package-lock.json
+mcp-server/README.md

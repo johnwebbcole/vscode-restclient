@@ -39,7 +39,8 @@
     "multi-root ready"
   ],
   "activationEvents": [
-    "onLanguage:markdown"
+    "onLanguage:markdown",
+    "onStartupFinished"
   ],
   "main": "./dist/extension",
   "contributes": {
@@ -203,6 +204,17 @@
         "command": "rest-client.import-postman-collection",
         "title": "Import Postman Collection",
         "category": "Rest Client"
+      },
+      {
+        "command": "rest-client.register-mcp-server",
+        "title": "Register MCP Server",
+        "category": "Rest Client MCP"
+      }
+    ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "restclient-mcp.bundled-mcp-server",
+        "label": "Rest Client MCP Server"
       }
     ],
     "menus": {
@@ -767,6 +779,7 @@
     "webpack-cli": "^7.2.0"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.13.0",
     "adal-node": "^0.2.4",
     "aws-amplify": "^6.18.0",
     "aws4": "^1.13.2",
@@ -795,6 +808,7 @@
     "tough-cookie-file-store": "^3.3.0",
     "xmldom": "^0.6.0",
     "xpath": "^0.0.34",
-    "yargs-parser": "^22.0.0"
+    "yargs-parser": "^22.0.0",
+    "zod": "^3.24.1"
   }
 }

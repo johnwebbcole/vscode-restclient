@@ -5,6 +5,14 @@
 
 REST Client allows you to send HTTP request and view the response in Visual Studio Code directly. It eliminates the need for a separate tool to test REST APIs and makes API testing convenient and efficient.
 
+## Why This Fork Exists
+I've used REST Client for years and always wanted Postman import/export — never got around to building it myself until now. More recently my coding agent kept ignoring the `.http` files already sitting in my projects and shelling out to `curl` instead, reinventing requests it could've just run. This fork is the original [REST Client](https://github.com/Huachao/vscode-restclient) by Huachao Mao with both of those fixed, cleaned up for how I work, and dependencies brought current:
+
+* **Postman Collections, both directions** — convert requests to/from Postman Collections and Environments, so you can hand work off to a teammate on Postman or pull an existing collection into `.http` files. Details in [Postman Collections](#postman-collections).
+* **A built-in MCP server** — Claude Code, GitHub Copilot, and other MCP-aware agents can send requests straight from your `.http`/`.rest` files, so the examples you already wrote get used instead of the agent guessing at curl. Registers itself with VS Code on install. Details in [MCP Server (AI Agent Integration)](#mcp-server-ai-agent-integration).
+
+That's what separates this from the original and from other forks. Everything past this point is the feature set REST Client has always had.
+
 ## Main Features
 * Send/Cancel/Rerun __HTTP request__ in editor and view response in a separate pane with syntax highlight
 * Send __GraphQL query__ and author __GraphQL variables__ in editor
@@ -110,6 +118,14 @@ REST Client extension also provides the flexibility that you can send the reques
 
 ## Install
 Press `F1`, type `ext install` then search for `rest-client`.
+
+### MCP Auto-Registration (Chat Tools)
+After installing this extension, VS Code discovers the bundled Rest Client MCP server automatically through the extension's MCP server definition provider.
+
+If the server is not visible in chat tools right away:
+1. Run `MCP: List Servers`.
+2. Start/trust the `rest-client` server if prompted.
+3. If needed, run `Rest Client MCP: Register MCP Server` and choose Workspace or User Profile to add/update `mcp.json`.
 
 ## Making Request
 ![rest-client](https://raw.githubusercontent.com/johnwebbcole/vscode-restclient/master/images/usage.gif)
@@ -291,9 +307,23 @@ __Import Postman Collection__: Press `F1` and select/type `Rest Client: Import P
 * An __Environment__ prompts you for a name and whether to save it to your Global or Workspace settings, adding it to `rest-client.environmentVariables` so it shows up when you `Switch Environment`.
 
 ## MCP Server (AI Agent Integration)
-This repo includes a standalone MCP server (`mcp-server/`) that lets an MCP-aware AI agent (Claude Code, GitHub Copilot, etc.) send requests directly from your `.http`/`.rest` files, using the same file format as this extension. See [mcp-server/README.md](mcp-server/README.md) for setup and available tools.
+This extension bundles an MCP server runtime (`mcp-server/`) and publishes it to VS Code chat tools automatically on install. That lets an MCP-aware AI agent (Claude Code, GitHub Copilot, etc.) send requests directly from your `.http`/`.rest` files using the same file format as this extension.
+
+If your environment blocks automatic discovery, run `Rest Client MCP: Register MCP Server` to create or update workspace/user `mcp.json` with an idempotent `rest-client` server entry.
 
 When an agent has this MCP server available, it should default to it for HTTP/API calls instead of shelling out to `curl` - curl is opt-in only, used when you explicitly ask for it. See [mcp-server/README.md#transport-policy-mcp-vs-curl](mcp-server/README.md#transport-policy-mcp-vs-curl) for the full policy, including what happens if the MCP server is unavailable.
+
+### MCP Troubleshooting
+If the server does not show up:
+1. Run `MCP: List Servers` and verify `rest-client` is listed.
+2. If missing, run `Rest Client MCP: Register MCP Server`.
+3. Open `.vscode/mcp.json` and confirm a `servers.rest-client` entry exists.
+4. Re-run `MCP: List Servers` and start/trust the server.
+
+If the server is listed but disabled/not trusted:
+1. Run `MCP: List Servers` and select `rest-client`.
+2. Choose `Enable` (if disabled) and `Start`.
+3. If trust was previously denied, run `MCP: Reset Trust`, then start `rest-client` again.
 
 ## Cancel Request
 If you want to cancel a processing request, click the waiting spin icon or use shortcut `Ctrl+Alt+K`(`Cmd+Alt+K` for macOS), or press `F1` and then select/type `Rest Client: Cancel Request`.
