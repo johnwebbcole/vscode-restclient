@@ -70,6 +70,23 @@ function parseHeaders(headerLines) {
   return headers;
 }
 
+function isFormUrlEncoded(contentTypeHeader) {
+  if (!contentTypeHeader) return false;
+  return contentTypeHeader.split(';')[0].trim().toLowerCase() === 'application/x-www-form-urlencoded';
+}
+
+// Joins body lines the same way the REST Client extension does
+// (HttpRequestParser.parseBody): for form-urlencoded bodies, a line starting
+// with '&' is a continuation of the previous line (no newline inserted) so
+// long parameter lists can be wrapped across lines; everything else joins
+// lines with '\n' as usual.
+function joinBodyLines(bodyLines, contentTypeHeader) {
+  if (!isFormUrlEncoded(contentTypeHeader)) {
+    return bodyLines.join('\n');
+  }
+  return bodyLines.reduce((acc, line, i) => acc + (i === 0 || line.startsWith('&') ? '' : '\n') + line, '');
+}
+
 // Extracts the request contained in a block, given the block's raw (comment
 // and file-variable stripped) lines. Returns null if the block has no request.
 function buildRequest(rawLines) {
@@ -94,13 +111,15 @@ function buildRequest(rawLines) {
   // skip the blank line separating headers from body
   if (i < lines.length && isEmptyLine(lines[i])) i++;
 
+  const headers = parseHeaders(headerLines);
+  const contentTypeHeader = headers.find(([name]) => name.toLowerCase() === 'content-type')?.[1];
   const bodyLines = lines.slice(i);
-  let body = bodyLines.length > 0 ? bodyLines.join('\n').replace(/\n+$/, '') : undefined;
+  let body = bodyLines.length > 0 ? joinBodyLines(bodyLines, contentTypeHeader).replace(/\n+$/, '') : undefined;
 
   return {
     method,
     url,
-    headers: parseHeaders(headerLines),
+    headers,
     body: body || undefined,
   };
 }

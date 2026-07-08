@@ -1,8 +1,11 @@
 // Implements the subset of REST Client's system variables ($guid, $timestamp,
-// $datetime, $localDatetime, $randomInt, $processEnv) that can run headlessly,
-// i.e. without VS Code UI (interactive AAD/OIDC sign-in, clipboard, dotenv
-// resolution tied to the active editor, etc. are intentionally not supported).
+// $datetime, $localDatetime, $randomInt, $processEnv, $dotenv) that can run
+// headlessly, i.e. without VS Code UI (interactive AAD/OIDC sign-in and
+// clipboard are intentionally not supported).
 // See src/utils/httpVariableProviders/systemVariableProvider.ts upstream.
+
+import fs from 'node:fs';
+import path from 'node:path';
 
 const DURATION_UNITS = { y: 'years', Q: 'quarters', M: 'months', w: 'weeks', d: 'days', h: 'hours', m: 'minutes', s: 'seconds', ms: 'milliseconds' };
 
@@ -37,12 +40,81 @@ const DATETIME_REGEX = /^\$datetime\s(rfc1123|iso8601|'.+'|".+")(?:\s(-?\d+)\s(y
 const LOCAL_DATETIME_REGEX = /^\$localDatetime\s(rfc1123|iso8601|'.+'|".+")(?:\s(-?\d+)\s(y|Q|M|w|d|h|m|s|ms))?$/;
 const RANDOM_INT_REGEX = /^\$randomInt\s(-?\d+)\s(-?\d+)$/;
 const PROCESS_ENV_REGEX = /^\$processEnv\s(%)?(\w+)$/;
+const DOTENV_REGEX = /^\$dotenv\s(%)?([\w-.]+)$/;
+
+// Minimal .env parser (KEY=value per line, '#' comments, optional quotes) -
+// good enough for the values REST Client's own {{$dotenv}} variable expects;
+// no need for the full dotenv package's multiline/expansion support here.
+function parseDotenv(content) {
+  const result = {};
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq === -1) continue;
+    const key = line.slice(0, eq).trim().replace(/^export\s+/, '');
+    let value = line.slice(eq + 1).trim();
+    const quoted = /^"(.*)"$/.exec(value) || /^'(.*)'$/.exec(value);
+    if (quoted) {
+      value = quoted[1];
+    } else {
+      const commentIdx = value.indexOf(' #');
+      if (commentIdx !== -1) value = value.slice(0, commentIdx).trim();
+    }
+    result[key] = value;
+  }
+  return result;
+}
+
+// Finds the closest '.env.<environmentName>' (preferred) or '.env' file,
+// walking up from the .http file's directory - mirroring
+// SystemVariableProvider's dotenv resolution upstream.
+function findDotenvFile(startDir, environmentName) {
+  let dir = startDir;
+  while (true) {
+    if (environmentName) {
+      const namedPath = path.join(dir, `.env.${environmentName}`);
+      if (fs.existsSync(namedPath)) return namedPath;
+    }
+    const plainPath = path.join(dir, '.env');
+    if (fs.existsSync(plainPath)) return plainPath;
+
+    const parent = path.dirname(dir);
+    if (parent === dir) return undefined;
+    dir = parent;
+  }
+}
+
+// Resolves "$dotenv [%]NAME": with the '%' toggle, NAME is itself looked up
+// in the workspace's rest-client.environmentVariables first (falling back to
+// NAME unchanged if absent) to get the actual .env key - the same indirection
+// upstream's resolveSettingsEnvironmentVariable performs.
+function resolveDotenvVariable(name, { httpFileDir, environmentName, environmentVariables = {} } = {}) {
+  const match = DOTENV_REGEX.exec(name);
+  if (!match || !httpFileDir) return undefined;
+  const [, refToggle, key] = match;
+
+  const dotenvPath = findDotenvFile(httpFileDir, environmentName);
+  if (!dotenvPath) return undefined;
+
+  const dotEnvVarName = refToggle && Object.prototype.hasOwnProperty.call(environmentVariables, key)
+    ? String(environmentVariables[key])
+    : key;
+
+  const parsed = parseDotenv(fs.readFileSync(dotenvPath, 'utf8'));
+  if (!Object.prototype.hasOwnProperty.call(parsed, dotEnvVarName)) return undefined;
+  return parsed[dotEnvVarName];
+}
 
 /**
  * Resolves a system variable expression (the text inside {{ }}, e.g.
  * "$randomInt 1 100"). Returns undefined if `expr` isn't a system variable.
+ * `context` carries the extra state ($dotenv alone needs: `httpFileDir`, the
+ * directory to search for a .env file, `environmentName`, and
+ * `environmentVariables`, the workspace's rest-client.environmentVariables map
+ * for the '%' indirection).
  */
-export function resolveSystemVariable(expr) {
+export function resolveSystemVariable(expr, context) {
   const name = expr.trim();
 
   if (name === '$guid') {
@@ -81,7 +153,11 @@ export function resolveSystemVariable(expr) {
     return process.env[envName] ?? '';
   }
 
+  if (DOTENV_REGEX.test(name)) {
+    return resolveDotenvVariable(name, context);
+  }
+
   return undefined;
 }
 
-export const UNSUPPORTED_SYSTEM_VARIABLE_REGEX = /^\$(aadToken|aadV2Token|oidcToken|dotenv)\b/;
+export const UNSUPPORTED_SYSTEM_VARIABLE_REGEX = /^\$(aadToken|aadV2Token|oidcToken)\b/;

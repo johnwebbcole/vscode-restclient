@@ -45,7 +45,10 @@ export async function sendRequest({ method, url, headers, body }, { timeoutMs = 
       method,
       headers: fetchHeaders,
       body: BODY_LESS_METHODS.has(method.toUpperCase()) ? undefined : body,
-      redirect: 'follow',
+      // 'manual' so a 3xx is returned as-is (status, Location, Set-Cookie) instead
+      // of being silently followed - a login redirect's Set-Cookie (e.g. a
+      // refreshed session cookie) would otherwise never reach the cookie jar.
+      redirect: 'manual',
       signal: controller.signal,
     });
 

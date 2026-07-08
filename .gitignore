@@ -3,6 +3,7 @@ node_modules
 dist
 *.vsix
 .DS_Store
+.vscode/mcp.json
 
 # Test artifacts
 .vscode-test

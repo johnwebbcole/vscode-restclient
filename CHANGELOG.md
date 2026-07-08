@@ -1,3 +1,8 @@
+## 1.3.0 (2026/07/08)
+* __Feature__: The MCP server now keeps a process-lifetime in-memory request/response cache, so `{{name.response...}}`/`{{name.request...}}` chaining resolves across separate `run_request`/`run_file` tool calls, not just within a single `run_file` run. Opt out per call with `useRequestCache: false`. See [mcp-server/README.md](mcp-server/README.md#requestresponse-cache).
+* __Feature__: The MCP server now supports the `$dotenv` system variable, resolving values from the closest `.env.<environment>` or `.env` file relative to the `.http` file.
+* __Bug Fix__: The MCP server's request parser now joins `application/x-www-form-urlencoded` body lines the same way the VS Code extension does, so a continuation line starting with `&` no longer gets an inserted newline.
+
 ## 1.0.0 (2026/07/04)
 * __Feature__: Added a standalone `mcp-server/` MCP server so AI agents can send requests directly from `.http`/`.rest` files (`list_requests`, `run_request`, `run_file`).
 * __Feature__: The MCP server now keeps a process-lifetime in-memory cookie jar, so `run_request`/`run_file` can replay `Set-Cookie` cookies across requests (e.g. a login followed by authenticated calls) similarly to the VS Code extension's cookie jar. Opt out per call with `useCookieJar: false`. See [mcp-server/README.md](mcp-server/README.md#cookie-jar).

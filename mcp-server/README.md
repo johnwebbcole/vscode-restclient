@@ -35,9 +35,9 @@ and drive it over the actual MCP protocol via `@modelcontextprotocol/sdk`'s clie
 
 - **list_requests** `{ filePath }` — parses a file and lists its requests
   (name, method, url, line) without sending anything.
-- **run_request** `{ filePath, name?, index?, environment?, variables?, timeoutMs?, useCookieJar? }`
+- **run_request** `{ filePath, name?, index?, environment?, variables?, timeoutMs?, useCookieJar?, useRequestCache? }`
   — sends one request, selected by its `# @name` value or 0-based index.
-- **run_file** `{ filePath, environment?, variables?, stopOnError?, timeoutMs?, useCookieJar? }`
+- **run_file** `{ filePath, environment?, variables?, stopOnError?, timeoutMs?, useCookieJar?, useRequestCache? }`
   — sends every request in the file in order, resolving `{{name.response...}}`
   chaining references against earlier named requests as it goes.
 
@@ -68,6 +68,30 @@ on-disk persistence:
 - The jar is in-memory only: it resets on server restart and isn't shared
   across processes. There's no interactive sign-in support - it just replays
   whatever `Set-Cookie` headers a plain HTTP response sends back.
+
+## Request/response cache
+
+The server also keeps one in-memory request/response cache for its whole
+process lifetime, shared across every `run_request`/`run_file` call. It backs
+`{{name.response.body.$.path}}` / `{{name.response.headers.X}}` /
+`{{name.request...}}` chaining, so a name from an earlier tool call is still
+resolvable in a later, separate one - not just within a single `run_file` run:
+
+- After a request with a `# @name` runs, its resolved request and response
+  (status, headers, body) are stored under that name, overwriting any earlier
+  entry with the same name.
+- Before a request is sent, `{{name...}}` references are resolved against
+  this cache (as well as any names that have already run earlier in the same
+  `run_file` call).
+- This is how an agent can call `run_request` for `login`, inspect the
+  result, and then in a *separate* `run_request` call reference
+  `{{login.response.body.$.token}}` and have it resolve - the same chaining
+  syntax already supported within one `run_file` call, now shared across
+  calls the same way the cookie jar already is.
+- Set `useRequestCache: false` on a `run_request`/`run_file` call to skip both
+  reading and writing the cache for that call (default `true`).
+- The cache is in-memory only: it resets on server restart and isn't shared
+  across processes.
 
 ## Transport policy: MCP vs curl
 

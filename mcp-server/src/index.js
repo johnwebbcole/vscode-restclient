@@ -5,6 +5,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { createCookieJar } from './cookieJar.js';
 import { extractFileVariables, parseHttpFile } from './httpFileParser.js';
+import { createRequestCache } from './requestCache.js';
 import { resolveEnvironmentVariables } from './settings.js';
 import { logTransportSelection } from './telemetry.js';
 import { selectTransport } from './transportPolicy.js';
@@ -19,6 +20,12 @@ const WORKSPACE_ROOT = process.env.REST_CLIENT_MCP_WORKSPACE_ROOT || process.cwd
 // extension's cookie jar, minus its on-disk persistence.
 const cookieJar = createCookieJar();
 
+// One cache per server process, shared by every run_request/run_file call, so
+// {{name.response.body.$.path}} / {{name.request...}} chaining (see
+// resolveChainedVariable in variableSubstitution.js) works across separate
+// tool calls, not just within a single run_file's request loop.
+const requestCache = createRequestCache();
+
 function readHttpFile(filePath) {
   const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(WORKSPACE_ROOT, filePath);
   if (!fs.existsSync(absolutePath)) {
@@ -27,12 +34,13 @@ function readHttpFile(filePath) {
   return { absolutePath, text: fs.readFileSync(absolutePath, 'utf8') };
 }
 
-function buildVariableContext(text, { environment, variables } = {}) {
+function buildVariableContext(text, { environment, variables, httpFileDir } = {}) {
   const environmentVariables = resolveEnvironmentVariables(WORKSPACE_ROOT, environment);
   const inputVariables = variables || {};
+  const systemVariableContext = { httpFileDir, environmentName: environment };
   const rawFileVariables = extractFileVariables(text);
-  const fileVariables = resolveFileVariables(rawFileVariables, { environmentVariables, inputVariables });
-  return { fileVariables, environmentVariables, inputVariables };
+  const fileVariables = resolveFileVariables(rawFileVariables, { environmentVariables, inputVariables, systemVariableContext });
+  return { fileVariables, environmentVariables, inputVariables, systemVariableContext };
 }
 
 function selectRequests(requests, { name, index } = {}) {
@@ -137,19 +145,27 @@ server.registerTool(
       variables: z.record(z.string(), z.string()).optional().describe('Extra {{variable}}: value overrides, highest precedence.'),
       timeoutMs: z.number().int().positive().optional().describe('Request timeout in milliseconds (default 30000).'),
       useCookieJar: z.boolean().optional().describe('Read/write the server-lifetime cookie jar for this request: attach matching stored cookies (unless the request sets its own Cookie header) and store any Set-Cookie from the response (default true).'),
+      useRequestCache: z.boolean().optional().describe("Read/write the server-lifetime request/response cache used for {{name.response.body.$.path}} chaining: resolve chained variables against named requests from earlier run_request/run_file calls, and (if this request has a '# @name') store its result for later calls to reference (default true)."),
     },
   },
-  async ({ filePath, name, index, environment, variables, timeoutMs, useCookieJar }) => {
+  async ({ filePath, name, index, environment, variables, timeoutMs, useCookieJar, useRequestCache = true }) => {
     logMcpToolSelected('run_request');
-    const { text } = readHttpFile(filePath);
+    const { absolutePath, text } = readHttpFile(filePath);
     const requests = parseHttpFile(text);
     if (name === undefined && index === undefined && requests.length !== 1) {
       throw new Error(`File has ${requests.length} requests; specify 'name' or 'index' to pick one. Call list_requests to see the options.`);
     }
     const [request] = selectRequests(requests, { name, index });
-    const context = buildVariableContext(text, { environment, variables });
-    const { resolved, warnings } = resolveRequest(request, context);
+    const context = buildVariableContext(text, { environment, variables, httpFileDir: path.dirname(absolutePath) });
+    const chainedResults = useRequestCache ? requestCache.toObject() : {};
+    const { resolved, warnings } = resolveRequest(request, { ...context, chainedResults });
     const sendResult = await sendRequest(resolved, { timeoutMs, cookieJar, useCookieJar });
+    if (request.name && useRequestCache) {
+      requestCache.set(request.name, {
+        request: resolved,
+        response: sendResult.ok ? { status: sendResult.status, headers: sendResult.headers, body: sendResult.body } : undefined,
+      });
+    }
     const summary = summarizeResult(request.name, request, sendResult, warnings);
     return { content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }] };
   },
@@ -167,24 +183,27 @@ server.registerTool(
       stopOnError: z.boolean().optional().describe('Stop after the first failed/errored request instead of continuing (default false).'),
       timeoutMs: z.number().int().positive().optional().describe('Per-request timeout in milliseconds (default 30000).'),
       useCookieJar: z.boolean().optional().describe('Read/write the server-lifetime cookie jar across the requests in this file: attach matching stored cookies (unless a request sets its own Cookie header) and store any Set-Cookie from each response (default true).'),
+      useRequestCache: z.boolean().optional().describe("Read/write the server-lifetime request/response cache used for {{name.response.body.$.path}} chaining: seed this run's chaining with named requests from earlier run_request/run_file calls, and store each named request's result for later calls to reference (default true)."),
     },
   },
-  async ({ filePath, environment, variables, stopOnError, timeoutMs, useCookieJar }) => {
+  async ({ filePath, environment, variables, stopOnError, timeoutMs, useCookieJar, useRequestCache = true }) => {
     logMcpToolSelected('run_file');
-    const { text } = readHttpFile(filePath);
+    const { absolutePath, text } = readHttpFile(filePath);
     const requests = parseHttpFile(text);
-    const context = buildVariableContext(text, { environment, variables });
-    const chainedResults = {};
+    const context = buildVariableContext(text, { environment, variables, httpFileDir: path.dirname(absolutePath) });
+    const chainedResults = useRequestCache ? requestCache.toObject() : {};
     const results = [];
 
     for (const request of requests) {
       const { resolved, warnings } = resolveRequest(request, { ...context, chainedResults });
       const sendResult = await sendRequest(resolved, { timeoutMs, cookieJar, useCookieJar });
       if (request.name) {
-        chainedResults[request.name] = {
+        const entry = {
           request: resolved,
           response: sendResult.ok ? { status: sendResult.status, headers: sendResult.headers, body: sendResult.body } : undefined,
         };
+        chainedResults[request.name] = entry;
+        if (useRequestCache) requestCache.set(request.name, entry);
       }
       const summary = summarizeResult(request.name, request, sendResult, warnings);
       results.push(summary);

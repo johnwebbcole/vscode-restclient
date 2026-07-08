@@ -62,7 +62,7 @@ function resolveChainedVariable(expr, results) {
  * variables, file '@name = value' variables, then workspace environment
  * variables. Unresolved tokens are left untouched.
  */
-export function substituteVariables(text, { fileVariables = {}, environmentVariables = {}, inputVariables = {}, chainedResults = {} } = {}) {
+export function substituteVariables(text, { fileVariables = {}, environmentVariables = {}, inputVariables = {}, chainedResults = {}, systemVariableContext = {} } = {}) {
   const warnings = [];
 
   const result = text.replace(VARIABLE_REGEX, (whole, rawName) => {
@@ -73,7 +73,7 @@ export function substituteVariables(text, { fileVariables = {}, environmentVaria
         warnings.push(`System variable '${name}' requires interactive VS Code sign-in and isn't supported by the MCP server.`);
         return whole;
       }
-      const value = resolveSystemVariable(name);
+      const value = resolveSystemVariable(name, { ...systemVariableContext, environmentVariables });
       if (value !== undefined) return value;
       warnings.push(`Could not resolve system variable '{{${name}}}'.`);
       return whole;
