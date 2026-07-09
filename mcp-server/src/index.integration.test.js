@@ -134,3 +134,64 @@ describe('mcp-server run_request (real subprocess, curl stripped from PATH)', ()
     }
   });
 });
+
+describe('mcp-server file variables referencing chained request results', () => {
+  test("run_file resolves '@var = {{name.response.body...}}' declared as a file variable", async () => {
+    // /accounts returns data; /use echoes back the request body it received,
+    // so the assertion below sees exactly what the MCP server sent.
+    const server = http.createServer((req, res) => {
+      if (req.url === '/accounts') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ rows: [{ accountId: 'acct-42' }] }));
+        return;
+      }
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ received: body }));
+      });
+    });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address();
+    const baseUrl = `http://127.0.0.1:${port}`;
+
+    const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'rest-client-mcp-workspace-'));
+    fs.writeFileSync(path.join(workspaceRoot, 'chained.http'), [
+      '# @name accounts',
+      `GET ${baseUrl}/accounts HTTP/1.1`,
+      '',
+      '###',
+      '@accountId = {{accounts.response.body.rows[0].accountId}}',
+      '',
+      '###',
+      '# @name use',
+      `POST ${baseUrl}/use HTTP/1.1`,
+      'Content-Type: application/json',
+      '',
+      '{"accountId": "{{accountId}}"}',
+      '',
+    ].join('\n'));
+
+    try {
+      await withMcpClient(
+        { PATH: process.env.PATH, REST_CLIENT_MCP_WORKSPACE_ROOT: workspaceRoot },
+        async (client) => {
+          const ran = await client.callTool({ name: 'run_file', arguments: { filePath: 'chained.http' } });
+          const results = JSON.parse(ran.content[0].text);
+          assert.equal(results.length, 2, `expected 2 requests, got: ${JSON.stringify(results)}`);
+
+          const use = results.find(r => r.name === 'use');
+          assert.ok(use, `expected a result named 'use', got: ${JSON.stringify(results)}`);
+          assert.equal(use.ok, true, `expected 'use' to succeed, got: ${JSON.stringify(use)}`);
+          assert.equal(use.warnings, undefined, `expected no unresolved-variable warnings, got: ${JSON.stringify(use.warnings)}`);
+          const echoed = JSON.parse(JSON.parse(use.body).received);
+          assert.equal(echoed.accountId, 'acct-42');
+        },
+      );
+    } finally {
+      server.close();
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+});

@@ -102,8 +102,11 @@ export function substituteVariables(text, { fileVariables = {}, environmentVaria
 }
 
 /**
- * File variables can themselves reference other variables (including input
- * variables), so resolve them once, in declaration order, before use.
+ * File variables can themselves reference other variables (input variables,
+ * system variables, and chained request results from `context.chainedResults`),
+ * so resolve them in declaration order against the given context. Callers
+ * should re-resolve per request, since chained results accumulate as a run
+ * progresses.
  */
 export function resolveFileVariables(rawFileVariables, context) {
   const resolved = {};

@@ -39,8 +39,7 @@ function buildVariableContext(text, { environment, variables, httpFileDir } = {}
   const inputVariables = variables || {};
   const systemVariableContext = { httpFileDir, environmentName: environment };
   const rawFileVariables = extractFileVariables(text);
-  const fileVariables = resolveFileVariables(rawFileVariables, { environmentVariables, inputVariables, systemVariableContext });
-  return { fileVariables, environmentVariables, inputVariables, systemVariableContext };
+  return { rawFileVariables, environmentVariables, inputVariables, systemVariableContext };
 }
 
 function selectRequests(requests, { name, index } = {}) {
@@ -62,6 +61,11 @@ function selectRequests(requests, { name, index } = {}) {
 }
 
 function resolveRequest(request, context) {
+  // File variables can reference earlier named requests ('@id = {{login.response.body.$.id}}'),
+  // so they must be resolved per request, against the chained results known at
+  // that point - not once up front, when no request has run yet.
+  const fileVariables = resolveFileVariables(context.rawFileVariables ?? {}, context);
+  context = { ...context, fileVariables };
   const { result: url, warnings: urlWarnings } = substituteVariables(request.url, context);
   const headers = [];
   const warnings = [...urlWarnings];
