@@ -19,7 +19,8 @@ tslint.json
 vitest.config.ts
 vsc-extension-quickstart.md
 package-json.lock
-webpack.config.js
+vite.config.mts
+vite.mcp.config.mts
 images/*.gif
 images/curl-request.png
 images/http.png
@@ -27,13 +28,8 @@ images/request-history.png
 images/navigate.png
 images/curl-request.png
 
-# The extension is webpacked into dist/, so the top-level node_modules is not
-# needed at runtime. The bundled MCP server runs unbundled via
-# `node mcp-server/src/index.js`, so it ships with its own production
-# node_modules instead.
+# Everything the extension needs at runtime is bundled into dist/ by vite:
+# dist/extension.js (+ chunks/) for the extension host and dist/mcp-server.mjs
+# for the bundled MCP server, so no node_modules or mcp-server sources ship.
 node_modules/**
-mcp-server/node_modules/.bin/**
-mcp-server/src/**/*.test.js
-mcp-server/src/**/*.integration.test.js
-mcp-server/package-lock.json
-mcp-server/README.md
+mcp-server/**

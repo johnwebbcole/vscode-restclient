@@ -187,7 +187,7 @@ async function resolveBundledMcpServerDefinition(
 }
 
 function getBundledServerScriptPath(context: ExtensionContext): Uri {
-    return Uri.file(path.join(context.extensionPath, 'mcp-server', 'src', 'index.js'));
+    return Uri.file(path.join(context.extensionPath, 'dist', 'mcp-server.mjs'));
 }
 
 function buildServerConfig(context: ExtensionContext): McpStdioServerConfig {

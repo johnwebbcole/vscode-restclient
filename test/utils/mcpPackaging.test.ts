@@ -2,12 +2,15 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 describe('MCP packaging metadata', () => {
-    it('does not exclude bundled mcp-server assets from VSIX', () => {
+    it('excludes mcp-server sources from the VSIX since the server is bundled into dist', () => {
         const ignorePath = join(__dirname, '../../.vscodeignore');
         const ignoreContent = readFileSync(ignorePath, 'utf8');
 
-        expect(ignoreContent).not.toContain('mcp-server/**');
-        expect(ignoreContent).toContain('mcp-server/node_modules/**');
+        expect(ignoreContent).toContain('mcp-server/**');
+        expect(ignoreContent).toContain('node_modules/**');
+        // dist/ must ship (only its source maps are excluded), since it holds
+        // both the extension bundle and dist/mcp-server.mjs.
+        expect(ignoreContent).not.toMatch(/^dist\/\*\*$/m);
     });
 
     it('declares runtime dependencies required by the bundled mcp server', () => {

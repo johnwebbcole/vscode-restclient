@@ -24,7 +24,7 @@ These instructions apply to all Copilot models used in this repository.
 |------|---------|
 | Install dependencies | `npm install` |
 | Lint | `npm run tslint` |
-| Build (dev bundle) | `npm run webpack` |
+| Build (extension + MCP server) | `npm run build` |
 | Build (prepublish) | `npm run vscode:prepublish` |
 | Watch | `npm run watch` |
 

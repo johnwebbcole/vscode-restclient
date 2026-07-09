@@ -12,7 +12,7 @@ Guidance for AI coding agents working in this repository.
 
 - Install deps: `npm install`
 - Build production bundle: `npm run vscode:prepublish`
-- Build development bundle: `npm run webpack`
+- Build extension + bundled MCP server: `npm run build` (vite; MCP server bundles to `dist/mcp-server.mjs`)
 - Watch mode during development: `npm run watch`
 - Lint: `npm run tslint`
 
