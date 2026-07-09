@@ -27,8 +27,12 @@ images/request-history.png
 images/navigate.png
 images/curl-request.png
 
-# Keep bundled MCP runtime code, but exclude nested dev/install artifacts.
-mcp-server/node_modules/**
+# The extension is webpacked into dist/, so the top-level node_modules is not
+# needed at runtime. The bundled MCP server runs unbundled via
+# `node mcp-server/src/index.js`, so it ships with its own production
+# node_modules instead.
+node_modules/**
+mcp-server/node_modules/.bin/**
 mcp-server/src/**/*.test.js
 mcp-server/src/**/*.integration.test.js
 mcp-server/package-lock.json
