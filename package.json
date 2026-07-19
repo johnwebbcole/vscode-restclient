@@ -795,7 +795,7 @@
     "dayjs": "^1.11.21",
     "dotenv": "^17.4.2",
     "encodeurl": "^2.0.0",
-    "filesize": "^11.0.19",
+    "filesize": "^11.0.22",
     "got": "15.1.0",
     "highlight.js": "^11.11.1",
     "http-proxy-agent": "9.1.0",
