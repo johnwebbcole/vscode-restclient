@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   release:
@@ -52,9 +53,11 @@ jobs:
 
       - name: Commit version bump
         run: |
+          BRANCH="release/v${{ steps.version.outputs.version }}"
+          git checkout -b "$BRANCH"
           git add package.json package-lock.json
           git commit -m "chore: release v${{ steps.version.outputs.version }}"
-          git push origin HEAD:${{ github.ref_name }}
+          git push origin "$BRANCH"
 
       - name: Tag release
         run: |
@@ -71,3 +74,15 @@ jobs:
 
       - name: Publish to VS Code Marketplace
         run: npx vsce publish --packagePath "restclient-mcp-${{ steps.version.outputs.version }}.vsix" -p "${{ secrets.VSCE_PAT }}"
+
+      - name: Create version bump PR
+        run: |
+          gh pr create \
+            --repo "${{ github.repository }}" \
+            --head "release/v${{ steps.version.outputs.version }}" \
+            --base "${{ github.ref_name }}" \
+            --title "chore: release v${{ steps.version.outputs.version }}" \
+            --body "Automated version bump for release v${{ steps.version.outputs.version }}" \
+            || echo "PR already exists for release/v${{ steps.version.outputs.version }}, skipping creation"
+        env:
+          GH_TOKEN: ${{ github.token }}
