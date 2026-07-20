@@ -87,6 +87,19 @@ Guidance for AI coding agents working in this repository.
 - CI baseline checks: [.github/workflows/nodejs.yml](.github/workflows/nodejs.yml)
 - HTTP grammar: [syntaxes/http.tmLanguage.json](syntaxes/http.tmLanguage.json)
 
+## Git Remote / PR Policy
+
+- This repo is a fork: `origin` is `johnwebbcole/vscode-restclient` (yours), `upstream` is
+  `Huachao/vscode-restclient` (the original project, not yours to open PRs against).
+- `gh pr create` defaults to the fork *parent* (`upstream`) as the base repo, not `origin`
+  - it will silently target `Huachao/vscode-restclient` unless told otherwise. Never rely
+    on the default.
+- Always create pull requests against `origin` (`johnwebbcole/vscode-restclient`) only.
+  Pass `--repo johnwebbcole/vscode-restclient` explicitly to `gh pr create`, and confirm
+  the printed PR URL starts with `github.com/johnwebbcole/` before treating it as done.
+- Never open, push to, or otherwise modify `Huachao/vscode-restclient` (or any other
+  upstream/original repo) unless the user explicitly asks to contribute upstream.
+
 ## PR Readiness Checklist
 
 - Scope of change is minimal and localized.

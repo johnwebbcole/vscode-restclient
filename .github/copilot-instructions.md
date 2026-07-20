@@ -81,6 +81,17 @@ When the user asks to debug or fix an issue:
 - If the MCP tools are unavailable, report that clearly with fallback guidance; do not
   silently fall back to curl.
 
+## Git Remote / PR Policy
+
+- This repo is a fork: `origin` is `johnwebbcole/vscode-restclient` (yours), `upstream` is
+  `Huachao/vscode-restclient` (the original project). `gh pr create` defaults to the fork
+  parent (`upstream`) as the base repo unless told otherwise - never rely on the default.
+- Always create pull requests against `origin` only, passing
+  `--repo johnwebbcole/vscode-restclient` explicitly to `gh pr create`. Confirm the
+  returned PR URL starts with `github.com/johnwebbcole/` before treating it as done.
+- Never open, push to, or otherwise modify `Huachao/vscode-restclient` (or any other
+  upstream/original repo) unless the user explicitly asks to contribute upstream.
+
 ## Workflow: AI Instruction Sync
 
 When AI guidance files are changed:
