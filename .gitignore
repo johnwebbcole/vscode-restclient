@@ -13,3 +13,5 @@ tsconfig.integration.tsbuildinfo
 
 # Logs
 npm-debug.log*
+
+chat/

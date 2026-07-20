@@ -34,8 +34,15 @@ These instructions apply to all Copilot models used in this repository.
 - Clarify ambiguity: ask when request scope is unclear or behavior impact is uncertain.
 - Minimal changes only: avoid unrelated refactors.
 - No auto-commit: do not commit unless the user explicitly asks.
+- If drafting social posts, produce BlueSky (<=300 chars) and LinkedIn (2-3 short paragraphs with CTA) variants.
 - Keep architecture patterns: reuse existing controller/provider/service style.
 - Avoid `console.log`; use `src/logger.ts` for logging.
+
+## Social Post Storage
+
+- Save social drafts to `/chat/bluesky-posts.md` and `/chat/linkedin-posts.md`.
+- Use #OpenSource and REST Client topic tags when relevant.
+- For each appended entry include: ISO 8601 timestamp, one-line summary, post content, links, hashtags, and a `To Add` checklist.
 
 ## Validation Rules
 
