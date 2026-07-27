@@ -786,7 +786,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "adal-node": "^0.2.4",
-    "aws-amplify": "^6.18.0",
+    "aws-amplify": "^6.19.0",
     "aws4": "^1.13.2",
     "code-highlight-linenums": "^0.2.1",
     "combined-stream": "^1.0.8",
