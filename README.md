@@ -58,6 +58,7 @@ That's what separates this from the original and from other forks. Everything pa
     - Support shared environment to provide variables that available in all environments
 * Generate code snippets for __HTTP request__ in languages like `Python`, `JavaScript` and more!
 * Remember Cookies for subsequent requests
+    - Optional `Set-Cookie` domain rewriting so cookies scoped to a production domain can be stored during local development
 * Proxy support
 * Send SOAP requests, as well as snippet support to build SOAP envelope easily
 * `HTTP` language support
@@ -746,6 +747,100 @@ Date: {{$datetime rfc1123}}
 ```
 > More details about `aadToken` (Azure Active Directory Token) can be found on the [original project's Wiki](https://github.com/Huachao/vscode-restclient/wiki/Azure-Active-Directory-Authentication-Samples)
 
+## Cookie Domain Rewriting
+When `rest-client.rememberCookiesForSubsequentRequests` is enabled, `Set-Cookie` headers go into a cookie jar that enforces the same domain rules a browser does. A cookie scoped to a production domain therefore fails against a local server:
+
+```
+Cookie not in this host's domain. Cookie: jwc.dev Request: localhost
+```
+
+This happens when an upstream service always sets `Domain=.example.com`, even while you are pointing requests at `http://localhost:3000`. Cookie domain rewriting fixes the mismatch by editing the `Domain` attribute before the cookie reaches the jar.
+
+It is __disabled by default__, and even when enabled nothing is rewritten unless *all* of the following hold:
+
+1. `rest-client.cookieDomainRewrite.enabled` is `true`.
+2. The request host is on `rest-client.cookieDomainRewrite.allowedRequestHosts` (when that list is non-empty).
+3. The cookie carries a `Domain` attribute that does __not__ match the request host. Cookies that already match are never touched.
+4. A rule in `rest-client.cookieDomainRewrite.rules` matches that domain.
+
+### Configuration schema
+Setting | Type | Default | Description
+--------|------|---------|------------
+`rest-client.cookieDomainRewrite.enabled` | `boolean` | `false` | Master switch for the whole feature.
+`rest-client.cookieDomainRewrite.rules` | `{ "domain": string, "strategy": "requestHost" \| "hostOnly" \| "drop", "removeSecure"?: boolean }[]` | `[]` | Evaluated in order against the cookie's `Domain`; the first match wins.
+`rest-client.cookieDomainRewrite.allowedRequestHosts` | `string[]` | `["localhost", "127.0.0.1", "::1"]` | Request hosts on which rewriting is permitted. An empty list removes the restriction.
+
+A `domain` (in a rule or in the allow list) is one of:
+
+Pattern | Matches
+--------|--------
+`example.com` | Exactly that domain (a leading `.` is accepted and ignored)
+`*.example.com` | `example.com` and any of its subdomains
+`*` | Any domain
+
+The available strategies are:
+
+Strategy | Effect
+---------|-------
+`requestHost` | Replace `Domain` with the host of the current request (`Domain=localhost`). An IP-address host (`127.0.0.1`, `::1`) cannot carry a `Domain` attribute, so the cookie is stored host-only for that address instead.
+`hostOnly` | Remove `Domain` entirely, storing a host-only cookie for the request host
+`drop` | Discard the cookie instead of storing it
+
+Every other cookie attribute — `Path`, `Secure`, `HttpOnly`, `SameSite`, `Expires`, `Max-Age` and any extension attributes — is preserved as-is, with one opt-in exception below.
+
+### Removing the `Secure` attribute
+A rule may also set `"removeSecure": true` to strip `Secure` from the rewritten cookie:
+
+```json
+{ "domain": "*.example.com", "strategy": "requestHost", "removeSecure": true }
+```
+
+Only an explicit `true` enables it; it defaults to off and is ignored by the `drop` strategy. It applies only to cookies a rule already rewrites — a cookie whose domain matches the request host is never touched.
+
+You usually do **not** need this on `localhost`. Loopback origins (`localhost`, `*.localhost`, `127.0.0.1`, `::1`) count as *potentially trustworthy*, so a `Secure` cookie is sent back over plain `http://` there anyway. It matters when your development host is something else — `http://dev.example.com`, `http://myapp.test`, a LAN address like `http://192.168.1.10:3000` — where a `Secure` cookie is stored but silently withheld from every subsequent plain-HTTP request.
+
+### Example: local development against a production-scoped cookie
+```json
+{
+    "rest-client.cookieDomainRewrite.enabled": true,
+    "rest-client.cookieDomainRewrite.rules": [
+        { "domain": "*.example.com", "strategy": "requestHost" }
+    ],
+    "rest-client.cookieDomainRewrite.allowedRequestHosts": ["localhost", "127.0.0.1"]
+}
+```
+
+With this in place, a response from `http://localhost:3000/login` carrying
+
+```
+Set-Cookie: sid=abc123; Domain=.example.com; Path=/; HttpOnly
+```
+
+is stored as `sid=abc123; Path=/; HttpOnly; Domain=localhost` and sent on subsequent `localhost` requests. The same response from `https://api.example.com/login` is stored unchanged, because the domain already matches.
+
+### Example: host-only cookies and dropped trackers
+```json
+{
+    "rest-client.cookieDomainRewrite.enabled": true,
+    "rest-client.cookieDomainRewrite.rules": [
+        { "domain": "*.example.com", "strategy": "hostOnly" },
+        { "domain": "tracking.example.com", "strategy": "drop" }
+    ]
+}
+```
+
+Rules are evaluated top to bottom, so put the more specific domain first if you want it to win.
+
+Set `rest-client.logLevel` to `verbose` to see a line in the __REST__ output channel for each rewrite, naming the original domain, the outcome and the request host.
+
+### Security notes
+* Rewriting a cookie's domain deliberately breaks the isolation the `Domain` attribute exists to provide: a cookie the server scoped to one origin becomes readable by another. Keep the feature scoped to development hosts, and prefer `allowedRequestHosts` over an empty list.
+* Prefer `hostOnly` over `requestHost` when you only need the cookie back on the exact host that set it — it is the narrower of the two.
+* `*` as a rule domain rewrites every mismatched cookie. It is supported for convenience in throwaway setups, but an explicit domain is always the safer choice.
+* `removeSecure` removes a protection the server asked for, exposing the cookie to plain-HTTP requests where a network observer can read it. Turn it on only for development hosts you control, and prefer serving those over `https` — or ask the upstream service not to set `Secure` in its development environment — before reaching for it.
+* Cookies dropped by the `drop` strategy are gone — nothing is persisted and no retry happens.
+* Rewritten cookies live in the same cookie jar as everything else. Use __Rest Client: Clear cookies__ to flush them.
+
 ## Customize Response Preview
 REST Client Extension adds the ability to control the font family, size and weight used in the response preview.
 
@@ -765,6 +860,9 @@ exchange | Preview the whole HTTP exchange(request and response)
 * `rest-client.showResponseInDifferentTab`: Show response in different tab. (Default is __false__)
 * `rest-client.requestNameAsResponseTabTitle`: Show request name as the response tab title. Only valid when using html view, if no request name is specified defaults to "Response". (Default is __false__)
 * `rest-client.rememberCookiesForSubsequentRequests`: Save cookies from `Set-Cookie` header in response and use for subsequent requests. (Default is __true__)
+* `rest-client.cookieDomainRewrite.enabled`: Rewrite the `Domain` attribute of incoming `Set-Cookie` headers when it doesn't match the request host. See [Cookie Domain Rewriting](#cookie-domain-rewriting). (Default is __false__)
+* `rest-client.cookieDomainRewrite.rules`: Rules applied to mismatched `Set-Cookie` domains, in order; the first matching rule wins. Each rule may also set `removeSecure` to strip the `Secure` attribute. (Default is __[]__)
+* `rest-client.cookieDomainRewrite.allowedRequestHosts`: Request hosts on which cookie domain rewriting is permitted. An empty list removes the host restriction. (Default is __["localhost", "127.0.0.1", "::1"]__)
 * `rest-client.excludeHostsForProxy`: Excluded hosts when using proxy settings. (Default is __[]__)
 * `rest-client.fontSize`: Controls the font size in pixels used in the response preview. (Default is __13__)
 * `rest-client.fontFamily`: Controls the font family used in the response preview. (Default is __Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback"__)
