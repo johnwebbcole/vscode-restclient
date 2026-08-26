@@ -5,6 +5,7 @@ import { CookieJar, Store } from 'tough-cookie';
 import CookieFileStore from 'tough-cookie-file-store';
 import * as url from 'url';
 import { Uri, window } from 'vscode';
+import Logger from '../logger';
 import { RequestHeaders, ResponseHeaders } from '../models/base';
 import { IRestClientSettings, SystemSettings } from '../models/configurationSettings';
 import { HttpRequest } from '../models/httpRequest';
@@ -12,6 +13,7 @@ import { HttpResponse } from '../models/httpResponse';
 import { awsCognito } from './auth/awsCognito';
 import { awsSignature } from './auth/awsSignature';
 import { digest } from './auth/digest';
+import { DomainRewritingCookieJar } from './cookieDomainRewriter';
 import { MimeUtility } from './mimeUtility';
 import { getHeader, removeHeader } from './misc';
 import { convertBufferToStream, convertStreamToBuffer } from './streamUtility';
@@ -147,7 +149,7 @@ export class HttpClient {
         }
 
         if (settings.rememberCookiesForSubsequentRequests) {
-            options.cookieJar = new CookieJar(this.cookieStore);
+            options.cookieJar = this.createCookieJar(settings);
         }
 
         // TODO: refactor auth
@@ -202,6 +204,21 @@ export class HttpClient {
         }
 
         return options;
+    }
+
+    /**
+     * Builds the cookie jar handed to `got`.  When Set-Cookie domain rewriting is enabled and
+     * at least one rule is configured, the jar is wrapped so each Set-Cookie header passes
+     * through the rewrite layer before it reaches the store.
+     */
+    private createCookieJar(settings: IRestClientSettings): CookieJar | DomainRewritingCookieJar {
+        const cookieJar = new CookieJar(this.cookieStore);
+        const rewriteSettings = settings.cookieDomainRewrite;
+        if (!rewriteSettings?.enabled || rewriteSettings.rules.length === 0) {
+            return cookieJar;
+        }
+
+        return new DomainRewritingCookieJar(cookieJar, rewriteSettings, message => Logger.verbose(message));
     }
 
     private decodeEscapedUnicodeCharacters(body: string): string {

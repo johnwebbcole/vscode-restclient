@@ -447,6 +447,64 @@
           "scope": "resource",
           "description": "Remember cookies for subsequent requests"
         },
+        "rest-client.cookieDomainRewrite.enabled": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "markdownDescription": "Rewrite the `Domain` attribute of incoming `Set-Cookie` headers when it does not match the request host. Intended for local development against services that scope cookies to a production domain. Nothing is rewritten unless this is enabled **and** a rule in `#rest-client.cookieDomainRewrite.rules#` matches."
+        },
+        "rest-client.cookieDomainRewrite.rules": {
+          "type": "array",
+          "default": [],
+          "scope": "resource",
+          "markdownDescription": "Rules applied to mismatched `Set-Cookie` domains, in order; the first matching rule wins. Requires `#rest-client.cookieDomainRewrite.enabled#`.",
+          "items": {
+            "type": "object",
+            "required": [
+              "domain",
+              "strategy"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "domain": {
+                "type": "string",
+                "markdownDescription": "Cookie domain this rule applies to: an exact domain (`example.com`), a wildcard suffix (`*.example.com`, which also matches the apex domain) or `*` for any domain."
+              },
+              "strategy": {
+                "type": "string",
+                "enum": [
+                  "requestHost",
+                  "hostOnly",
+                  "drop"
+                ],
+                "enumDescriptions": [
+                  "Replace the Domain attribute with the host of the current request.",
+                  "Remove the Domain attribute so the cookie is stored as a host-only cookie.",
+                  "Discard the cookie instead of storing it."
+                ],
+                "description": "What to do with a cookie whose domain matches this rule."
+              },
+              "removeSecure": {
+                "type": "boolean",
+                "default": false,
+                "markdownDescription": "Also strip the `Secure` attribute from the rewritten cookie, so it can be sent back over a plain `http://` development origin. Ignored by the `drop` strategy."
+              }
+            }
+          }
+        },
+        "rest-client.cookieDomainRewrite.allowedRequestHosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "localhost",
+            "127.0.0.1",
+            "::1"
+          ],
+          "scope": "resource",
+          "markdownDescription": "Request hosts on which cookie domain rewriting is permitted. Accepts the same patterns as a rule domain (`localhost`, `*.localhost`, `*`). An empty list removes the host restriction, leaving `#rest-client.cookieDomainRewrite.enabled#` as the only gate."
+        },
         "rest-client.excludeHostsForProxy": {
           "type": "array",
           "default": [],

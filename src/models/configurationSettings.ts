@@ -2,6 +2,7 @@ import { CharacterPair, Event, EventEmitter, languages, ViewColumn, window, work
 import configuration from '../../language-configuration.json';
 import { getCurrentTextDocument } from '../utils/workspaceUtility';
 import { RequestHeaders } from './base';
+import { CookieDomainRewriteSettings, defaultAllowedRequestHosts, normalizeAllowedRequestHosts, normalizeCookieDomainRewriteRules } from './cookieDomainRewrite';
 import { FormParamEncodingStrategy, fromString as ParseFormParamEncodingStr } from './formParamEncodingStrategy';
 import { fromString as ParseLogLevelStr, LogLevel } from './logLevel';
 import { fromString as ParsePreviewOptionStr, PreviewOption } from './previewOption';
@@ -25,6 +26,7 @@ export interface IRestClientSettings {
     readonly proxy?: string;
     readonly proxyStrictSSL: boolean;
     readonly rememberCookiesForSubsequentRequests: boolean;
+    readonly cookieDomainRewrite: CookieDomainRewriteSettings;
     readonly excludeHostsForProxy: string[];
     readonly fontSize?: number;
     readonly fontFamily?: string;
@@ -60,6 +62,7 @@ export class SystemSettings implements IRestClientSettings {
     private _proxy?: string;
     private _proxyStrictSSL: boolean;
     private _rememberCookiesForSubsequentRequests: boolean;
+    private _cookieDomainRewrite: CookieDomainRewriteSettings;
     private _excludeHostsForProxy: string[];
     private _fontSize?: number;
     private _fontFamily?: string;
@@ -115,6 +118,10 @@ export class SystemSettings implements IRestClientSettings {
 
     public get rememberCookiesForSubsequentRequests() {
         return this._rememberCookiesForSubsequentRequests;
+    }
+
+    public get cookieDomainRewrite() {
+        return this._cookieDomainRewrite;
     }
 
     public get excludeHostsForProxy() {
@@ -258,6 +265,12 @@ export class SystemSettings implements IRestClientSettings {
         this._showResponseInDifferentTab = restClientSettings.get<boolean>("showResponseInDifferentTab", false);
         this._requestNameAsResponseTabTitle = restClientSettings.get<boolean>("requestNameAsResponseTabTitle", false);
         this._rememberCookiesForSubsequentRequests = restClientSettings.get<boolean>("rememberCookiesForSubsequentRequests", true);
+        this._cookieDomainRewrite = {
+            enabled: restClientSettings.get<boolean>("cookieDomainRewrite.enabled", false),
+            rules: normalizeCookieDomainRewriteRules(restClientSettings.get<unknown>("cookieDomainRewrite.rules", [])),
+            allowedRequestHosts: normalizeAllowedRequestHosts(
+                restClientSettings.get<unknown>("cookieDomainRewrite.allowedRequestHosts", defaultAllowedRequestHosts)),
+        };
         this._timeoutInMilliseconds = restClientSettings.get<number>("timeoutinmilliseconds", 0);
         if (this._timeoutInMilliseconds < 0) {
             this._timeoutInMilliseconds = 0;
@@ -362,6 +375,10 @@ export class RestClientSettings implements IRestClientSettings {
 
     public get rememberCookiesForSubsequentRequests() {
         return this.requestSettings.rememberCookiesForSubsequentRequests ?? this.systemSettings.rememberCookiesForSubsequentRequests;
+    }
+
+    public get cookieDomainRewrite() {
+        return this.systemSettings.cookieDomainRewrite;
     }
 
     public get excludeHostsForProxy() {
