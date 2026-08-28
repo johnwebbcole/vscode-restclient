@@ -37,7 +37,7 @@ function readHttpFile(filePath) {
 function buildVariableContext(text, { environment, variables, httpFileDir } = {}) {
   const environmentVariables = resolveEnvironmentVariables(WORKSPACE_ROOT, environment);
   const inputVariables = variables || {};
-  const systemVariableContext = { httpFileDir, environmentName: environment };
+  const systemVariableContext = { httpFileDir, workspaceRoot: WORKSPACE_ROOT, environmentName: environment };
   const rawFileVariables = extractFileVariables(text);
   return { rawFileVariables, environmentVariables, inputVariables, systemVariableContext };
 }

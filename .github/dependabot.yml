@@ -23,3 +23,7 @@ updates:
       all-dependencies:
         patterns:
           - "*"
+    ignore:
+      # @types/vscode must stay in lockstep with engines.vscode in package.json,
+      # or `vsce package` fails at release time. Bump both together manually.
+      - dependency-name: "@types/vscode"

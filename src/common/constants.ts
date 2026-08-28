@@ -16,6 +16,9 @@ export const ProcessEnvVariableName = "$processEnv";
 export const ProcessEnvDescription = "Returns the value of process environment variable or '' if not found ";
 export const DotenvVariableName = "$dotenv";
 export const DotenvDescription = "Returns the environment value stored in a .env file";
+export const FileContentVariableName = "$file";
+export const FileContentVariableDescription = "Inserts the contents of a file, optionally base64 or JSON-string encoded. \
+ Follows the format {{$file path [raw|base64|json]}}";
 export const AzureActiveDirectoryVariableName = "$aadToken";
 export const AzureActiveDirectoryDescription = "Prompts to sign in to Azure AD and adds the token to the request";
 export const AzureActiveDirectoryV2TokenVariableName = "$aadV2Token";
