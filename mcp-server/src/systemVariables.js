@@ -1,6 +1,6 @@
 // Implements the subset of REST Client's system variables ($guid, $timestamp,
-// $datetime, $localDatetime, $randomInt, $processEnv, $dotenv) that can run
-// headlessly, i.e. without VS Code UI (interactive AAD/OIDC sign-in and
+// $datetime, $localDatetime, $randomInt, $processEnv, $dotenv, $file) that can
+// run headlessly, i.e. without VS Code UI (interactive AAD/OIDC sign-in and
 // clipboard are intentionally not supported).
 // See src/utils/httpVariableProviders/systemVariableProvider.ts upstream.
 
@@ -41,6 +41,8 @@ const LOCAL_DATETIME_REGEX = /^\$localDatetime\s(rfc1123|iso8601|'.+'|".+")(?:\s
 const RANDOM_INT_REGEX = /^\$randomInt\s(-?\d+)\s(-?\d+)$/;
 const PROCESS_ENV_REGEX = /^\$processEnv\s(%)?(\w+)$/;
 const DOTENV_REGEX = /^\$dotenv\s(%)?([\w-.]+)$/;
+// '$file <path> [raw|base64|json]', the path optionally quoted so it can contain spaces.
+const FILE_REGEX = /^\$file\s+(?:"([^"]+)"|'([^']+)'|(\S+))(?:\s+(\S+))?\s*$/;
 
 // Minimal .env parser (KEY=value per line, '#' comments, optional quotes) -
 // good enough for the values REST Client's own {{$dotenv}} variable expects;
@@ -106,13 +108,50 @@ function resolveDotenvVariable(name, { httpFileDir, environmentName, environment
   return parsed[dotEnvVarName];
 }
 
+// Resolves "$file <path> [raw|base64|json]" by reading the file and encoding its bytes.
+// The path is resolved like a '< ./body.json' request body upstream: absolute paths as
+// given, otherwise relative to the workspace root and then to the .http file's directory.
+// See encodeFileContent in src/utils/fileSubstitution.ts upstream.
+function resolveFileVariable(name, { httpFileDir, workspaceRoot } = {}) {
+  const match = FILE_REGEX.exec(name);
+  if (!match) return undefined;
+  const [, doubleQuoted, singleQuoted, bare, encoding = 'raw'] = match;
+  const filePath = doubleQuoted ?? singleQuoted ?? bare;
+
+  const candidates = path.isAbsolute(filePath)
+    ? [filePath]
+    : [workspaceRoot, httpFileDir].filter(Boolean).map(dir => path.join(dir, filePath));
+  const absolutePath = candidates.find(candidate => fs.existsSync(candidate));
+  if (!absolutePath) return undefined;
+
+  let content;
+  try {
+    content = fs.readFileSync(absolutePath);
+  } catch {
+    return undefined;
+  }
+
+  switch (encoding.toLowerCase()) {
+    case 'base64':
+      return content.toString('base64');
+    case 'json':
+      // The inside of a JSON string, without the surrounding quotes.
+      return JSON.stringify(content.toString('utf8')).slice(1, -1);
+    case 'raw':
+      return content.toString('utf8');
+    default:
+      return undefined;
+  }
+}
+
 /**
  * Resolves a system variable expression (the text inside {{ }}, e.g.
  * "$randomInt 1 100"). Returns undefined if `expr` isn't a system variable.
- * `context` carries the extra state ($dotenv alone needs: `httpFileDir`, the
- * directory to search for a .env file, `environmentName`, and
- * `environmentVariables`, the workspace's rest-client.environmentVariables map
- * for the '%' indirection).
+ * `context` carries the extra state: `httpFileDir` (the directory to search for
+ * a .env file, and the fallback base for a relative $file path), `workspaceRoot`
+ * (the preferred base for a relative $file path), `environmentName`, and
+ * `environmentVariables` (the workspace's rest-client.environmentVariables map
+ * for $dotenv's '%' indirection).
  */
 export function resolveSystemVariable(expr, context) {
   const name = expr.trim();
@@ -155,6 +194,10 @@ export function resolveSystemVariable(expr, context) {
 
   if (DOTENV_REGEX.test(name)) {
     return resolveDotenvVariable(name, context);
+  }
+
+  if (FILE_REGEX.test(name)) {
+    return resolveFileVariable(name, context);
   }
 
   return undefined;

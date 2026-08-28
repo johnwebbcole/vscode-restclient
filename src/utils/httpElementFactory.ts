@@ -133,6 +133,13 @@ export class HttpElementFactory {
             new SnippetString(`{{$\${name:${Constants.DotenvVariableName.slice(1)}} \${2:.env variable name}}}`)
         ));
         originalElements.push(new HttpElement(
+            Constants.FileContentVariableName,
+            ElementType.SystemVariable,
+            null,
+            Constants.FileContentVariableDescription,
+            new SnippetString(`{{$\${name:${Constants.FileContentVariableName.slice(1)}} \${1:path/to/file} \${2|raw,base64,json|}}}`)
+        ));
+        originalElements.push(new HttpElement(
             Constants.AzureActiveDirectoryVariableName,
             ElementType.SystemVariable,
             null,

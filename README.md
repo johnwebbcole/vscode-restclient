@@ -50,6 +50,7 @@ That's what separates this from the original and from other forks. Everything pa
       + `{{$localDatetime rfc1123|iso8601 [offset option]}}`
       + `{{$processEnv [%]envVarName}}`
       + `{{$dotenv [%]variableName}}`
+      + `{{$file path [raw|base64|json]}}`
       + `{{$aadToken [new] [public|cn|de|us|ppe] [<domain|tenantId>] [aud:<domain|tenantId>]}}`
       + `{{$oidcAccessToken  [new]  [<clientId:<clientId>] [<callbackPort:<callbackPort>] [authorizeEndpoint:<authorizeEndpoint}] [tokenEndpoint:<tokenEndpoint}] [scopes:<scopes}] [audience:<audience}]}`
     - Easily create/update/delete environments and environment variables in setting file
@@ -711,6 +712,32 @@ For example: Define a shell environment variable in `.bashrc` or similar on wind
   `%`: Optional. If specified, treats envVarName as an extension setting environment variable, and uses the value of that for the lookup.
 
 * `{{$dotenv [%]variableName}}`: Returns the environment value stored in the [`.env`](https://github.com/motdotla/dotenv) file which exists in the same directory of your `.http` file.
+* `{{$file path [raw|base64|json]}}`: Inserts the contents of a file into the request, so a file can be embedded in a JSON field rather than becoming the whole body (which is what `< ./path` already does).
+
+  `path`: Mandatory. Absolute, or relative to the workspace root and then to the directory of your `.http` file — the same resolution `< ./body.json` uses. Wrap the path in single or double quotes if it contains spaces: `{{$file "my photos/cat pic.jpg" base64}}`.
+
+  `raw|base64|json`: Optional, defaults to `raw`.
+
+  Encoding | Effect
+  ---------|-------
+  `raw`    | Decodes the file as UTF-8 and inserts it verbatim, including any trailing newline. The default, and what `{{$file bar.txt}}` does.
+  `base64` | Standard base64 (RFC 4648). Use this for images and any other binary file.
+  `json`   | Decodes the file as UTF-8 and escapes it as the body of a JSON string — quotes, backslashes, newlines and control characters — but adds no surrounding quotes, so it drops into a body that already has them.
+
+  ```http
+  POST https://api.example.com/documents HTTP/1.1
+  Content-Type: application/json
+
+  {
+      "id": "{{$guid}}",
+      "avatar": "{{$file ./assets/foo.jpg base64}}",
+      "notes": "{{$file ./notes/bar.txt json}}"
+  }
+  ```
+
+  Prefer `json` over `raw` inside a JSON string: a `raw` file containing a quote, a backslash or a line break produces invalid JSON, whereas `json` escapes it. Reach for `raw` when you want the text spliced in literally — a whole body, an XML fragment, a GraphQL query.
+
+  If the path cannot be resolved, the file cannot be read, or the encoding is not one of the three above, the `{{$file ...}}` reference is left in the request untouched rather than being replaced with an empty string, so the failure is visible in what gets sent.
 * `{{$randomInt min max}}`: Returns a random integer between min (included) and max (excluded)
 * `{{$timestamp [offset option]}}`: Add UTC timestamp of now. You can even specify any date time based on current time in the format `{{$timestamp number option}}`, e.g., to represent 3 hours ago, simply `{{$timestamp -3 h}}`; to represent the day after tomorrow, simply `{{$timestamp 2 d}}`.
 * `{{$datetime rfc1123|iso8601|"custom format"|'custom format' [offset option]}}`: Add a datetime string in either _ISO8601_, _RFC1123_ or a custom display format. You can even specify a date time relative to the current date similar to `timestamp` like: `{{$datetime iso8601 1 y}}` to represent a year later in _ISO8601_ format. If specifying a custom format, wrap it in single or double quotes like: `{{$datetime "DD-MM-YYYY" 1 y}}`. The date is formatted using Day.js, read [here](https://day.js.org/docs/en/get-set/get#list-of-all-available-units) for information on format strings.
@@ -742,7 +769,9 @@ Date: {{$datetime rfc1123}}
     "created_at": "{{$timestamp -1 d}}",
     "review_count": "{{$randomInt 5 200}}",
     "custom_date": "{{$datetime 'YYYY-MM-DD'}}",
-    "local_custom_date": "{{$localDatetime 'YYYY-MM-DD'}}"
+    "local_custom_date": "{{$localDatetime 'YYYY-MM-DD'}}",
+    "body": "{{$file ./comment.txt json}}",
+    "attachment": "{{$file ./screenshot.png base64}}"
 }
 ```
 > More details about `aadToken` (Azure Active Directory Token) can be found on the [original project's Wiki](https://github.com/Huachao/vscode-restclient/wiki/Azure-Active-Directory-Authentication-Samples)
