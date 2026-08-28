@@ -127,4 +127,7 @@ interactive VS Code session is out of scope: Azure AD / OIDC / AWS Cognito
 sign-in variables, client certificates, and GraphQL/file-upload body helpers.
 Plain headers (including a hand-set `Authorization` header), JSON/text bodies,
 `{{$guid}}`, `{{$timestamp}}`, `{{$datetime}}`, `{{$randomInt}}`,
-`{{$processEnv}}`, and an in-memory cookie jar (see above) all work.
+`{{$processEnv}}`, `{{$dotenv}}`, `{{$file}}`, and an in-memory cookie jar (see
+above) all work. Relative `{{$file}}` paths resolve against the workspace root
+(`REST_CLIENT_MCP_WORKSPACE_ROOT`, defaulting to the process working directory)
+and then the `.http` file's own directory, matching the extension.

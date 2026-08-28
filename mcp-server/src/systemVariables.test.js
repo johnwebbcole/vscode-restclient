@@ -90,3 +90,92 @@ describe('$dotenv system variable', () => {
     assert.equal(value, undefined);
   });
 });
+
+describe('$file system variable', () => {
+  test('inserts a text file verbatim when no encoding is given', () => {
+    withTempDir(dir => {
+      fs.writeFileSync(path.join(dir, 'bar.txt'), 'hello world\n');
+      assert.equal(resolveSystemVariable('$file bar.txt', { httpFileDir: dir }), 'hello world\n');
+    });
+  });
+
+  test('base64 encodes binary content without corrupting it', () => {
+    withTempDir(dir => {
+      const binary = Buffer.from([0x00, 0xff, 0x89, 0x50, 0x4e, 0x47]);
+      fs.writeFileSync(path.join(dir, 'foo.jpg'), binary);
+      const value = resolveSystemVariable('$file foo.jpg base64', { httpFileDir: dir });
+      assert.ok(Buffer.from(value, 'base64').equals(binary));
+    });
+  });
+
+  test('json encoding escapes the content so it parses back once quoted', () => {
+    withTempDir(dir => {
+      const original = 'say "hi"\nsecond line';
+      fs.writeFileSync(path.join(dir, 'note.txt'), original);
+      const value = resolveSystemVariable('$file note.txt json', { httpFileDir: dir });
+      assert.equal(JSON.parse(`"${value}"`), original);
+    });
+  });
+
+  test("prefers the workspace root over the .http file's directory", () => {
+    withTempDir(dir => {
+      const workspaceRoot = path.join(dir, 'workspace');
+      const httpFileDir = path.join(dir, 'requests');
+      fs.mkdirSync(workspaceRoot);
+      fs.mkdirSync(httpFileDir);
+      fs.writeFileSync(path.join(workspaceRoot, 'bar.txt'), 'from workspace');
+      fs.writeFileSync(path.join(httpFileDir, 'bar.txt'), 'from http file dir');
+      assert.equal(resolveSystemVariable('$file bar.txt', { workspaceRoot, httpFileDir }), 'from workspace');
+    });
+  });
+
+  test("falls back to the .http file's directory when the workspace root has no such file", () => {
+    withTempDir(dir => {
+      const workspaceRoot = path.join(dir, 'workspace');
+      const httpFileDir = path.join(dir, 'requests');
+      fs.mkdirSync(workspaceRoot);
+      fs.mkdirSync(httpFileDir);
+      fs.writeFileSync(path.join(httpFileDir, 'bar.txt'), 'from http file dir');
+      assert.equal(resolveSystemVariable('$file bar.txt', { workspaceRoot, httpFileDir }), 'from http file dir');
+    });
+  });
+
+  test('resolves an absolute path as given', () => {
+    withTempDir(dir => {
+      const absolutePath = path.join(dir, 'bar.txt');
+      fs.writeFileSync(absolutePath, 'absolute');
+      assert.equal(resolveSystemVariable(`$file ${absolutePath}`, {}), 'absolute');
+    });
+  });
+
+  test('accepts a quoted path containing spaces', () => {
+    withTempDir(dir => {
+      fs.writeFileSync(path.join(dir, 'foo bar.txt'), 'spaced');
+      assert.equal(resolveSystemVariable('$file "foo bar.txt"', { httpFileDir: dir }), 'spaced');
+    });
+  });
+
+  test('returns undefined for a missing file', () => {
+    withTempDir(dir => {
+      assert.equal(resolveSystemVariable('$file nope.txt', { httpFileDir: dir }), undefined);
+    });
+  });
+
+  test('returns undefined for an unknown encoding rather than falling back to raw', () => {
+    withTempDir(dir => {
+      fs.writeFileSync(path.join(dir, 'bar.txt'), 'hello');
+      assert.equal(resolveSystemVariable('$file bar.txt rot13', { httpFileDir: dir }), undefined);
+    });
+  });
+
+  test('returns undefined when the path names a directory', () => {
+    withTempDir(dir => {
+      fs.mkdirSync(path.join(dir, 'sub'));
+      assert.equal(resolveSystemVariable('$file sub', { httpFileDir: dir }), undefined);
+    });
+  });
+
+  test('returns undefined when no path is given', () => {
+    assert.equal(resolveSystemVariable('$file', { httpFileDir: '/tmp' }), undefined);
+  });
+});
