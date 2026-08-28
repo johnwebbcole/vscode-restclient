@@ -830,7 +830,7 @@
     "@types/jws": "^3.2.11",
     "@types/mocha": "^10.0.10",
     "@types/node": "^26.2.0",
-    "@types/vscode": "^1.125.0",
+    "@types/vscode": "^1.134.0",
     "@vitest/coverage-v8": "^4.1.11",
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "3.9.2",
@@ -839,7 +839,7 @@
     "type-fest": "5.8.0",
     "typescript": "7.0.2",
     "typescript-legacy": "npm:typescript@6.0.3",
-    "vite": "8.2.1",
+    "vite": "8.2.2",
     "vitest": "^4.1.11"
   },
   "dependencies": {
