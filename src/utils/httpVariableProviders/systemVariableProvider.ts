@@ -14,8 +14,10 @@ import { VariableType } from '../../models/variableType';
 import { AadTokenCache } from '../aadTokenCache';
 import { AadV2TokenProvider } from '../aadV2TokenProvider';
 import { CALLBACK_PORT, OidcClient } from '../auth/oidcClient';
+import { encodeFileContent, parseFileVariable } from '../fileSubstitution';
 import { pathExists } from '../fsUtility';
 import { HttpClient } from '../httpClient';
+import { resolveRequestBodyPath } from '../requestParserUtil';
 import { EnvironmentVariableProvider } from './environmentVariableProvider';
 import { HttpVariable, HttpVariableContext, HttpVariableProvider } from './httpVariableProvider';
 
@@ -61,6 +63,7 @@ export class SystemVariableProvider implements HttpVariableProvider {
         this.registerRandomIntVariable();
         this.registerProcessEnvVariable();
         this.registerDotenvVariable();
+        this.registerFileVariable();
         this.registerAadTokenVariable();
         this.registerOidcTokenVariable();
         this.registerAadV2TokenVariable();
@@ -222,6 +225,33 @@ export class SystemVariableProvider implements HttpVariableProvider {
             }
 
             return { warning: ResolveWarningMessage.IncorrectDotenvVariableFormat };
+        });
+    }
+
+    /**
+     * `{{$file <path> [raw|base64|json]}}` splices a file's contents into the request.  The path
+     * is resolved the same way a `< ./body.json` request body is: absolute paths as given,
+     * otherwise relative to the workspace root and then to the .http file's own directory.
+     */
+    private registerFileVariable() {
+        this.resolveFuncs.set(Constants.FileContentVariableName, async name => {
+            const parsed = parseFileVariable(name);
+            if (!parsed) {
+                return { warning: ResolveWarningMessage.IncorrectFileContentVariableFormat };
+            }
+
+            const absolutePath = await resolveRequestBodyPath(parsed.filePath);
+            if (!absolutePath) {
+                return { warning: ResolveWarningMessage.FileContentFileNotFound };
+            }
+
+            try {
+                // Read as a Buffer, not a string, so binary files survive base64 encoding intact.
+                const content = await fs.promises.readFile(absolutePath);
+                return { value: encodeFileContent(content, parsed.encoding) };
+            } catch {
+                return { warning: ResolveWarningMessage.FileContentReadFailure };
+            }
         });
     }
 
