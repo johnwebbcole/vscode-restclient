@@ -8,6 +8,10 @@ updates:
       time: "06:00"
       timezone: "UTC"
     open-pull-requests-limit: 1
+    groups:
+      all-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directories:
@@ -23,6 +27,12 @@ updates:
       all-dependencies:
         patterns:
           - "*"
+        group-by: dependency-name
+      all-dependencies-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+        group-by: dependency-name
     ignore:
       # @types/vscode must stay in lockstep with engines.vscode in package.json,
       # or `vsce package` fails at release time. Bump both together manually.
