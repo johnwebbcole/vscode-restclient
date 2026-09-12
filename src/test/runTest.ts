@@ -26,7 +26,8 @@ function resolveVSCodeExecutablePath(vscodeExecutablePath: string): string {
 
 async function main() {
     // A real, empty folder to open as the workspace so activation-flow tests can exercise the
-    // "workspace is open" path (e.g. .vscode/mcp.json auto-registration) without touching the repo.
+    // "workspace is open" path (e.g. the manual "Register MCP Server" command writing
+    // .vscode/mcp.json) without touching the repo.
     const workspacePath = fs.mkdtempSync(path.join(os.tmpdir(), 'restclient-mcp-test-workspace-'));
 
     try {

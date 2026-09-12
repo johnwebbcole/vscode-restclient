@@ -7,8 +7,8 @@ suite('Extension Host', () => {
         assert.ok(extension);
     });
 
-    test('activation auto-registers the bundled MCP server in the open workspace', async function () {
-        this.timeout(30000);
+    test('activation does not write a static mcp.json entry', async function () {
+        this.timeout(10000);
 
         const folder = vscode.workspace.workspaceFolders?.[0];
         assert.ok(folder, 'expected a workspace folder to be open for this test run (see src/test/runTest.ts)');
@@ -19,30 +19,35 @@ suite('Extension Host', () => {
         assert.ok(extension);
         await extension!.activate();
 
-        // Auto-setup runs fire-and-forget from activate(), so poll briefly for the file to appear
-        // rather than assuming it exists synchronously once activate() resolves.
-        const content = await waitForFileContent(mcpConfigUri, 15000);
-        assert.ok(content, 'expected .vscode/mcp.json to be created automatically after activation, with no manual "Register MCP Server" step');
+        // Give any stray async work a moment to run. VS Code discovers the bundled server
+        // dynamically through registerBundledMcpServerProvider (lm.registerMcpServerDefinitionProvider),
+        // so activation must not also write a static file entry - doing both makes "rest-client"
+        // show up twice in "MCP: List Servers".
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-        const parsed = JSON.parse(content!);
-        assert.ok(parsed.servers?.['rest-client'], 'expected a rest-client entry under "servers"');
-        assert.strictEqual(parsed.servers['rest-client'].type, 'stdio');
+        await assert.rejects(
+            () => Promise.resolve(vscode.workspace.fs.readFile(mcpConfigUri)),
+            'expected no .vscode/mcp.json to be created automatically by activation'
+        );
     });
 
-    test('re-running Register MCP Server is idempotent and does not duplicate the entry', async () => {
+    test('Register MCP Server writes the workspace entry, and re-running it is idempotent', async () => {
         const folder = vscode.workspace.workspaceFolders?.[0];
         assert.ok(folder);
         const mcpConfigUri = vscode.Uri.joinPath(folder!.uri, '.vscode', 'mcp.json');
 
-        const before = Buffer.from(await vscode.workspace.fs.readFile(mcpConfigUri)).toString('utf8');
+        await vscode.commands.executeCommand('rest-client.register-mcp-server');
+
+        const first = Buffer.from(await vscode.workspace.fs.readFile(mcpConfigUri)).toString('utf8');
+        const parsed = JSON.parse(first);
+        assert.ok(parsed.servers?.['rest-client'], 'expected a rest-client entry under "servers"');
+        assert.strictEqual(parsed.servers['rest-client'].type, 'stdio');
 
         await vscode.commands.executeCommand('rest-client.register-mcp-server');
 
-        const after = Buffer.from(await vscode.workspace.fs.readFile(mcpConfigUri)).toString('utf8');
-        assert.strictEqual(before, after, 'expected re-running registration against an already-registered config to leave the file byte-for-byte unchanged');
-
-        const parsed = JSON.parse(after);
-        assert.strictEqual(Object.keys(parsed.servers).length, 1, 'expected exactly one server entry, not a duplicate');
+        const second = Buffer.from(await vscode.workspace.fs.readFile(mcpConfigUri)).toString('utf8');
+        assert.strictEqual(first, second, 'expected re-running registration against an already-registered config to leave the file byte-for-byte unchanged');
+        assert.strictEqual(Object.keys(JSON.parse(second).servers).length, 1, 'expected exactly one server entry, not a duplicate');
     });
 
     test('Register MCP Server does not throw regardless of whether mcp.openUserConfiguration exists in this VS Code build', async () => {
@@ -51,16 +56,3 @@ suite('Extension Host', () => {
         await assert.doesNotReject(() => Promise.resolve(vscode.commands.executeCommand('rest-client.register-mcp-server')));
     });
 });
-
-async function waitForFileContent(uri: vscode.Uri, timeoutMs: number): Promise<string | undefined> {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-        try {
-            const data = await vscode.workspace.fs.readFile(uri);
-            return Buffer.from(data).toString('utf8');
-        } catch {
-            await new Promise(resolve => setTimeout(resolve, 250));
-        }
-    }
-    return undefined;
-}
