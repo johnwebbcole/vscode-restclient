@@ -860,7 +860,7 @@
     "https-proxy-agent": "9.1.0",
     "httpsnippet": "^3.0.10",
     "iconv-lite": "^0.7.3",
-    "js-yaml": "^5.4.0",
+    "js-yaml": "^5.4.1",
     "jsonc-parser": "^3.3.1",
     "jsonpath-plus": "^10.4.0",
     "jws": "^4.0.1",
@@ -873,6 +873,6 @@
     "xmldom": "^0.6.0",
     "xpath": "^0.0.34",
     "yargs-parser": "^22.0.0",
-    "zod": "^4.4.3"
+    "zod": "^4.5.1"
   }
 }
