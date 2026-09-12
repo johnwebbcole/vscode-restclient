@@ -47,7 +47,6 @@ const MCP_SERVER_NAME = 'rest-client';
 const MCP_PROVIDER_ID = 'restclient-mcp.bundled-mcp-server';
 const REGISTER_MCP_SERVER_COMMAND = 'rest-client.register-mcp-server';
 const MCP_SERVER_STATUS_COMMAND = 'rest-client.mcp-server-status';
-const MCP_AUTO_SETUP_DONE_KEY = 'rest-client.mcpAutoSetupDone';
 // Best-effort only: used (if present) to focus VS Code's dedicated MCP config UI after we've
 // already written the file ourselves. Never required for registration to succeed.
 const MCP_OPEN_USER_CONFIG_COMMAND = 'mcp.openUserConfiguration';
@@ -89,7 +88,7 @@ export async function activate(context: ExtensionContext) {
     context.subscriptions.push(commands.registerCommand('rest-client.export-request-as-postman', () => postmanController.exportRequestAsPostman()));
     context.subscriptions.push(commands.registerCommand('rest-client.export-file-as-postman', (uri?: Uri) => postmanController.exportFileAsPostman(uri)));
     context.subscriptions.push(commands.registerCommand('rest-client.import-postman-collection', (uri?: Uri) => postmanController.importPostmanCollection(uri)));
-    context.subscriptions.push(commands.registerCommand(REGISTER_MCP_SERVER_COMMAND, () => runMcpRegistration(context, true)));
+    context.subscriptions.push(commands.registerCommand(REGISTER_MCP_SERVER_COMMAND, () => runMcpRegistration(context)));
     context.subscriptions.push(commands.registerCommand(MCP_SERVER_STATUS_COMMAND, () => showMcpRegistrationStatus(context)));
 
 
@@ -125,10 +124,6 @@ export async function activate(context: ExtensionContext) {
 
     const diagnosticsProvider = new CustomVariableDiagnosticsProvider();
     context.subscriptions.push(diagnosticsProvider);
-
-    // Fire-and-forget: register the bundled MCP server automatically so users don't have to run
-    // the command manually. Silent unless something needs the user's attention (see runMcpRegistration).
-    void runMcpRegistration(context, false);
 }
 
 // this method is called when your extension is deactivated
@@ -295,8 +290,7 @@ async function setupMcpTarget(
     label: string,
     uri: Uri | undefined,
     skipReason: string | undefined,
-    serverConfig: McpStdioServerConfig,
-    interactive: boolean
+    serverConfig: McpStdioServerConfig
 ): Promise<McpTargetResult> {
     if (!uri) {
         return { kind: 'skipped', reason: skipReason ?? `${label} target is unavailable.` };
@@ -307,7 +301,7 @@ async function setupMcpTarget(
         return { kind: 'success', status, uri };
     } catch (error) {
         if (error instanceof InvalidMcpConfigError) {
-            return offerInvalidJsonRecovery(label, uri, serverConfig, interactive);
+            return offerInvalidJsonRecovery(label, uri, serverConfig);
         }
 
         Logger.error(`Failed to register Rest Client MCP server in ${label.toLowerCase()} mcp.json.`, error);
@@ -318,13 +312,11 @@ async function setupMcpTarget(
 async function offerInvalidJsonRecovery(
     label: string,
     uri: Uri,
-    serverConfig: McpStdioServerConfig,
-    interactive: boolean
+    serverConfig: McpStdioServerConfig
 ): Promise<McpTargetResult> {
     const prompt = `Rest Client MCP could not update ${uri.fsPath} because it contains invalid JSON.`;
-    const showPrompt = interactive ? window.showErrorMessage : window.showWarningMessage;
 
-    const choice = await showPrompt(prompt, 'Back Up && Reset', 'Open File');
+    const choice = await window.showErrorMessage(prompt, 'Back Up && Reset', 'Open File');
 
     if (choice === 'Open File') {
         const document = await workspace.openTextDocument(uri);
@@ -353,19 +345,21 @@ async function offerInvalidJsonRecovery(
 
 /**
  * Registers the bundled MCP server at both the workspace and user targets using the same
- * resilient upsert logic, whether triggered silently on activation or explicitly via the
- * "Register MCP Server" command. Never depends on `mcp.openUserConfiguration` to succeed.
+ * resilient upsert logic. This is a manual, opt-in fallback for hosts that don't discover the
+ * server through `lm.registerMcpServerDefinitionProvider` (real VS Code registers it dynamically
+ * on activation instead - see `registerBundledMcpServerProvider` - so running this there would
+ * just create a redundant, duplicate-looking entry). Never depends on `mcp.openUserConfiguration`
+ * to succeed.
  */
-async function runMcpRegistration(context: ExtensionContext, interactive: boolean): Promise<void> {
+async function runMcpRegistration(context: ExtensionContext): Promise<void> {
     const serverConfig = buildServerConfig(context);
 
-    const folder = await selectWorkspaceFolder(interactive);
+    const folder = await selectWorkspaceFolder(true);
     const workspaceResult = await setupMcpTarget(
         'Workspace',
         folder ? resolveWorkspaceMcpConfigUri(folder) : undefined,
         'no workspace folder is open',
-        serverConfig,
-        interactive
+        serverConfig
     );
 
     const userUri = await resolveUserMcpConfigUri(context);
@@ -373,11 +367,10 @@ async function runMcpRegistration(context: ExtensionContext, interactive: boolea
         'User profile',
         userUri,
         'could not reliably locate the user profile mcp.json in this environment',
-        serverConfig,
-        interactive
+        serverConfig
     );
 
-    await reportMcpRegistrationOutcome(context, workspaceResult, userResult, interactive);
+    reportMcpRegistrationOutcome(workspaceResult, userResult);
 }
 
 const MCP_STATUS_VERBS: Record<McpConfigUpsertStatusLike, string> = {
@@ -400,21 +393,11 @@ function describeNonSuccess(result: McpTargetResult): string {
     return describeSuccess(result);
 }
 
-async function reportMcpRegistrationOutcome(
-    context: ExtensionContext,
+function reportMcpRegistrationOutcome(
     workspaceResult: McpTargetResult,
-    userResult: McpTargetResult,
-    interactive: boolean
-): Promise<void> {
+    userResult: McpTargetResult
+): void {
     const hasError = workspaceResult.kind === 'error' || userResult.kind === 'error';
-    const alreadyNotified = context.globalState.get<boolean>(MCP_AUTO_SETUP_DONE_KEY, false);
-
-    // Stay quiet on routine, unchanged startups once the user has already seen a summary once.
-    if (!interactive && alreadyNotified && !hasError) {
-        return;
-    }
-
-    await context.globalState.update(MCP_AUTO_SETUP_DONE_KEY, true);
 
     if (workspaceResult.kind === 'success' && userResult.kind === 'success') {
         // Don't await the button click: the registration work is already done, and a command
