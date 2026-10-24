@@ -867,7 +867,7 @@
     "mime-types": "^3.0.2",
     "open": "^11.0.4",
     "pretty-data": "^0.40.0",
-    "sanitize-html": "^2.18.0",
+    "sanitize-html": "^2.18.1",
     "tough-cookie": "^6.0.2",
     "tough-cookie-file-store": "^3.3.0",
     "xmldom": "^0.6.0",
